@@ -15,13 +15,9 @@ services:
     build: ./client
     ports:
       - "3000:3000"
-    volumes:
-      - ./client:/app
-      - /app/node_modules
     working_dir: /app
-    command: npm run dev
     env_file:
-      - ./client/.env
+    - ./client/.env.production
 
   mongo:
     image: mongo

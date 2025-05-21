@@ -9,11 +9,19 @@ const nextConfig: NextConfig = {
     return config;
   },
 
+  images: {
+    domains: ['ssl.pstatic.net', 'phinf.pstatic.net'],
+  },
+
   async rewrites() {
+    const isDocker = process.env.IS_DOCKER === 'true';
+
     return [
       {
-        source: "/api/:path*", // 클라이언트에서 /api/xxx 로 요청 시
-        destination: "http://server:4000/:path*", // 서버(백엔드)로 전달
+        source: "/api/:path*",
+        destination: isDocker
+          ? "http://server:4000/:path*"
+          : "http://localhost:4000/:path*",
       },
     ];
   },

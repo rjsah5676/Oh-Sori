@@ -30,15 +30,22 @@ export default function Home() {
   const dispatch = useDispatch();
 
   useEffect(() => {
+    if (nickname) {
+      router.replace('/home'); // 로그인했으면 대시보드로 강제 이동
+      return;
+    }
+
     apiFetch('')
-    .then((res) => {
-      console.log(res.message);
-    })
-    .catch((err) => console.error(err));
+      .then((res) => {
+        console.log(res.message);
+      })
+      .catch((err) => console.error(err));
 
     const random = phrases[Math.floor(Math.random() * phrases.length)];
     setPhrase(random);
-  }, []);
+  }, [nickname]);
+
+  if (nickname) return null;
 
   return (
     <main className="min-h-screen bg-white text-black dark:bg-zinc-900 dark:text-zinc-200 flex flex-col items-center justify-center px-4">
@@ -68,43 +75,24 @@ export default function Home() {
       </p>
 
       <div className="bg-white dark:bg-white/10 border border-zinc-200 dark:border-white/10 p-8 rounded-2xl shadow-lg w-full max-w-sm space-y-4 transition">
-        {nickname ? (
+        <>
           <button
-            onClick={async () => {
-              try {
-                await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
-                  method: 'POST',
-                  credentials: 'include',
-                });
-                dispatch(logout());
-                router.refresh();
-              } catch (e) {
-                console.error('Logout failed:', e);
-              }
-            }}
-            className="w-full py-3 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold shadow flex items-center justify-center gap-2 transition"
+            onClick={() => router.push('/login')}
+            className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow flex items-center justify-center gap-2 transition"
           >
-            로그아웃
+            <LogIn size={20} />
+            로그인
           </button>
-        ) : (
-          <>
-            <button
-              onClick={() => router.push('/login')}
-              className="w-full py-3 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow flex items-center justify-center gap-2 transition"
-            >
-              <LogIn size={20} />
-              로그인
-            </button>
-            <button className="w-full py-3 rounded-xl bg-gray-200 hover:bg-gray-100 text-black font-semibold dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-white shadow flex items-center justify-center gap-2 transition">
-              <UserPlus size={20} />
-              회원가입
-            </button>
-          </>
-        )}
+          <button
+            onClick={() => router.push('/about')}
+            className="w-full py-3 rounded-xl bg-gray-200 hover:bg-gray-100 text-black font-semibold dark:bg-zinc-700 dark:hover:bg-zinc-600 dark:text-white shadow flex items-center justify-center gap-2 transition">
+            👀 구경할래요
+          </button>
+        </>
       </div>
       <footer className="mt-12 text-sm text-zinc-500 dark:text-zinc-400 text-center space-y-1">
         <div className="space-x-4">
-          <a href="/about" className="hover:underline">서비스 소개</a>
+          <a href="/notice" className="hover:underline">공지사항</a>
           <a href="/terms" className="hover:underline">이용약관</a>
           <a href="/contact" className="hover:underline">문의하기</a>
         </div>

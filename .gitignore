@@ -12,3 +12,6 @@ server/dist
 # OS
 .DS_Store
 Thumbs.db
+
+# MongoDB Docker volume
+mongo-data/

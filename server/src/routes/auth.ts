@@ -95,7 +95,7 @@ router.get('/google', (req, res) => {
 // 2. 구글 → 콜백 처리
 router.get('/google/callback', async (req, res) => {
   const { code } = req.query;
-
+  console.log('✅ redirect_uri 확인:', process.env.GOOGLE_REDIRECT_URI);
   try {
     const tokenRes = await axios.post('https://oauth2.googleapis.com/token', null, {
       params: {

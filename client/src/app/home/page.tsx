@@ -9,6 +9,7 @@ import { Mic, Headphones, Settings, Users, Store } from 'lucide-react';
 import { logout } from '@/store/authSlice';
 import RightPanel from '@/components/RightPanel';
 import { getSocket } from '@/lib/socket';
+import UserAvatar from '@/components/UserAvatar';
 
 export default function MainRedirectPage() {
   const router = useRouter();
@@ -17,6 +18,8 @@ export default function MainRedirectPage() {
   const profileImage = useSelector((state: RootState) => state.auth.user?.profileImage);
   const tag = useSelector((state: RootState) => state.auth.user?.tag);
   const dispatch = useDispatch();
+
+  const color = useSelector((state: RootState) => state.auth.user?.color);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mode, setMode] = useState<'friends' | 'dm' | 'add-friend' | 'shop'>('friends');
@@ -107,7 +110,7 @@ export default function MainRedirectPage() {
         } md:hidden`}
       >
         <aside className="w-16 bg-zinc-200 dark:bg-zinc-900 border-r border-zinc-300 dark:border-zinc-700 flex flex-col pt-4 pb-[60px] items-center">
-          <button onClick={() => setIsSidebarOpen(false)} className="absolute top-4 right-4 text-xl">
+          <button onClick={() => setIsSidebarOpen(false)} className="absolute top-4 right-4 text-xl z-50">
             ✕
           </button>
           <button className="w-10 h-10 bg-zinc-300 dark:bg-zinc-700 rounded-full hover:bg-zinc-400 dark:hover:bg-zinc-600">+</button>
@@ -173,9 +176,7 @@ export default function MainRedirectPage() {
       </div>
       <div className="hidden md:flex fixed bottom-0 left-0 w-[304px] h-[60px] bg-zinc-200 dark:bg-zinc-900 border-t border-r border-zinc-300 dark:border-zinc-700 px-3 items-center justify-between z-40">
         <div className="flex items-center gap-2">
-          <div className="w-11 h-11 rounded-full overflow-hidden bg-white/10 border border-white/20">
-            <Image src={profileImage || '/images/default_profile.png'} alt="profile" width={48} height={48} className="object-cover w-full h-full" />
-          </div>
+          <UserAvatar profileImage={profileImage} color={color ?? undefined} />
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-medium text-black dark:text-white truncate">{nickname}</span>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">#{tag}</span>
@@ -296,11 +297,8 @@ export default function MainRedirectPage() {
           </button>
         </div>
       </div>
-        
-
-
         <section className="flex-1 min-h-screen pt-20 md:pt-6 p-6 overflow-y-auto">
-          <RightPanel mode={mode} setMode={setMode} selectedFriend={selectedFriend} />
+          <RightPanel mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
         </section>
       </main>
     </>

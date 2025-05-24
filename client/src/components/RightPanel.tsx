@@ -1,19 +1,68 @@
 'use client';
 
-import { useState } from 'react';
-import { Users } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Users, MessageCircle, X } from 'lucide-react';
+import { getSocket } from '@/lib/socket';
+import UserAvatar from '@/components/UserAvatar';
 
 interface RightPanelProps {
   mode: 'friends' | 'dm' | 'add-friend'|'shop';
   setMode: (mode: 'friends' | 'dm' | 'add-friend') => void;
   selectedFriend: { nickname: string; tag: string } | null;
+  pendingCount: number;
+  setPendingCount: React.Dispatch<React.SetStateAction<number>>;
 }
 
-export default function RightPanel({ mode, setMode, selectedFriend }: RightPanelProps) {
-  const [friendTab, setFriendTab] = useState<'online' | 'all'>('online');
+export default function RightPanel({ mode, setMode, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
+  const [friendTab, setFriendTab] = useState<'online' | 'all' | 'pending'>('online');
   const [friendSearch, setFriendSearch] = useState('');
   const [friendInput, setFriendInput] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const [pendingList, setPendingList] = useState<
+    { nickname: string; tag: string; email: string; profileImage?: string, color:string }[]
+  >([]); //친구 요청 리스트임
+
+  const [friendList, setFriendList] = useState<
+    { nickname: string; tag: string; email: string; profileImage?: string, color:string }[]
+  >([]); //실제 친구 목록임
+
+  useEffect(() => {
+    if (friendTab !== 'pending') {
+      const fetchFriendList = async () => {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/list`, {
+            credentials: 'include',
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setFriendList(data.friends);
+          }
+        } catch (err) {
+          console.error('친구 목록 불러오기 실패:', err);
+        }
+      };
+
+      fetchFriendList();
+    }
+    else {
+      const fetchPendingList = async () => {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/pending-list`, {
+            credentials: 'include',
+          });
+          const data = await res.json();
+          if (res.ok) {
+            setPendingList(data.list);
+          }
+        } catch (err) {
+          console.error('친구 요청 목록 불러오기 실패:', err);
+        }
+      };
+
+      fetchPendingList();
+    }
+  }, [friendTab]);
 
   const handleAddFriend = async () => {
     const [nickname, tag] = friendInput.split('#');
@@ -42,6 +91,92 @@ export default function RightPanel({ mode, setMode, selectedFriend }: RightPanel
       setErrorMessage(err.message);
     }
   };
+
+  const handleAccept = async (fromEmail: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/accept`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ fromEmail }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.message || '수락 실패');
+
+      setPendingList((prev) => prev.filter((f) => f.email !== fromEmail));
+      setPendingCount((prev) => prev - 1);
+      setFriendTab('online');
+      alert('친구 요청을 수락했습니다.');
+    } catch (err: any) {
+      alert(err.message || '에러 발생');
+    }
+  };
+
+  const handleReject = async (fromEmail: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ fromEmail }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || '거절 실패');
+
+      setPendingList((prev) => prev.filter((f) => f.email !== fromEmail));
+      setPendingCount((prev) => prev - 1);
+      setFriendTab('online');
+      
+      alert('친구 요청을 거절했습니다.');
+    } catch (err: any) {
+      alert(err.message || '에러 발생');
+    }
+  };
+
+  const handleDeleteFriend = async (email: string) => {
+    const confirmDelete = confirm('정말 삭제하시겠어요?');
+    if (!confirmDelete) return;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/delete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email }),
+      });
+      if (!res.ok) throw new Error('삭제 실패');
+      setFriendList(prev => prev.filter(friend => friend.email !== email));
+      alert('친구가 삭제되었습니다.');
+    } catch (err: any) {
+      alert(err.message || '에러 발생');
+    }
+  };
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleFriendUpdate = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/list`, {
+          credentials: 'include',
+        });
+        const data = await res.json();
+        if (res.ok) {
+          setFriendList(data.friends);
+        }
+      } catch (err) {
+        console.error('친구 목록 갱신 실패:', err);
+      }
+    };
+
+    socket.on('friendListUpdated', handleFriendUpdate);
+
+    return () => {
+      socket.off('friendListUpdated', handleFriendUpdate);
+    };
+  }, []);
 
   if (mode === 'friends') {
     return (
@@ -74,6 +209,21 @@ export default function RightPanel({ mode, setMode, selectedFriend }: RightPanel
           >
             전체
           </button>
+          {pendingCount > 0 && (
+            <button
+              onClick={() => setFriendTab('pending')}
+              className={`relative text-sm px-3 py-1 rounded-md transition ${
+                friendTab === 'pending'
+                  ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white'
+                  : 'text-zinc-600 dark:text-zinc-400'
+              }`}
+            >
+              친구 요청
+              <span className="absolute -top-1 -right-0.5 px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                {pendingCount}
+              </span>
+            </button>
+          )}
           <button
             onClick={() => setMode('add-friend')}
             className="text-sm px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition"
@@ -107,6 +257,41 @@ export default function RightPanel({ mode, setMode, selectedFriend }: RightPanel
         </div>
 
         <div className="space-y-2 text-base">
+            {friendTab === 'pending' && (
+            <>
+            {pendingList.length === 0 ? (
+              <div className="p-3 rounded-md bg-zinc-100 dark:bg-zinc-700 text-sm text-zinc-600 dark:text-zinc-300">
+                받은 친구 요청이 없습니다.
+              </div>
+            ) : (
+              pendingList.map((req) => (
+                <div key={`${req.email}`} className="p-3 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserAvatar profileImage={req.profileImage} color={req.color} size={32} />
+                    <div className="text-sm font-medium">
+                      {req.nickname}#{req.tag}
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    <button
+                      onClick={() => handleAccept(req.email)}
+                      className="text-xs bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 rounded"
+                    >
+                      수락
+                    </button>
+                    <button
+                      onClick={() => handleReject(req.email)}
+                      className="text-xs bg-red-600 hover:bg-red-500 text-white px-2 py-1 rounded"
+                    >
+                      거절
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </>
+        )}
+
           {friendTab === 'online' && (
             <>
               <div className="p-3 rounded-md bg-zinc-200 dark:bg-zinc-700">
@@ -115,14 +300,20 @@ export default function RightPanel({ mode, setMode, selectedFriend }: RightPanel
             </>
           )}
           {friendTab === 'all' && (
-            <>
-              <div className="p-3 rounded-md bg-zinc-200 dark:bg-zinc-700">
-                건모#1234 <span className="text-sm text-green-600 dark:text-green-400">(온라인)</span>
+            friendList.map((friend) => (
+              <div key={friend.email} className="p-3 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <UserAvatar profileImage={friend.profileImage} color={friend.color} size={32} />
+                  <div className="text-sm font-medium">
+                    {friend.nickname}#{friend.tag}
+                  </div>
+                </div>
+                <div className="flex gap-1 items-center">
+                  <button className="p-1 hover:text-blue-500"><MessageCircle size={16} /></button>
+                  <button onClick={() => handleDeleteFriend(friend.email)} className="p-1 hover:text-red-600"><X size={16} /></button>
+                </div>
               </div>
-              <div className="p-3 rounded-md bg-zinc-200 dark:bg-zinc-700">
-                준모#4211 <span className="text-sm text-yellow-600 dark:text-yellow-400">(자리비움)</span>
-              </div>
-            </>
+            ))
           )}
         </div>
       </div>

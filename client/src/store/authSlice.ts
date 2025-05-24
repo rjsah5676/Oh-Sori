@@ -1,4 +1,3 @@
-// src/store/authSlice.ts
 import { createSlice, PayloadAction } from '@reduxjs/toolkit';
 
 interface User {
@@ -6,6 +5,7 @@ interface User {
   nickname: string;
   tag: string | null;
   profileImage?: string | null;
+  color?: string | null;
 }
 
 interface AuthState {

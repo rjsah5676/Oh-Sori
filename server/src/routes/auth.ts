@@ -3,6 +3,7 @@ import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import cookie from 'cookie';
 import User from '../models/User';
+import { generateUniqueTag } from '../utils/generateTag';
 
 const router = Router();
 
@@ -17,6 +18,7 @@ router.get('/naver', (req, res) => {
   const redirectUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${NAVER_CLIENT_ID}&redirect_uri=${encodeURIComponent(NAVER_REDIRECT_URI)}&state=${state}`;
   res.redirect(redirectUrl);
 });
+
 router.get('/naver/callback', async (req, res) => {
   const { code, state } = req.query;
 
@@ -46,9 +48,11 @@ router.get('/naver/callback', async (req, res) => {
     let user = await User.findOne({ email });
 
     if (!user) {
+      const tag = await generateUniqueTag(nickname);
       user = new User({
         email,
         nickname,
+        tag,
         provider: 'naver',
         profileImage,
         createdAt: new Date(),
@@ -71,7 +75,7 @@ router.get('/naver/callback', async (req, res) => {
     }));
 
     // 유저 정보는 쓸 수 있게 쿼리로 전달
-    res.redirect(`http://localhost:3000/oauth/success?nickname=${encodeURIComponent(user.nickname)}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
+    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
   } catch (err: any) {
     console.error('Naver 로그인 실패:', err.response?.data || err.message);
     res.status(500).send('로그인 실패');
@@ -109,7 +113,8 @@ router.get('/google/callback', async (req, res) => {
 
     let user = await User.findOne({ email });
     if (!user) {
-      user = new User({ email, nickname, provider: 'google', profileImage, createdAt: new Date() });
+      const tag = await generateUniqueTag(nickname);
+      user = new User({ email, nickname,tag, provider: 'google', profileImage, createdAt: new Date() });
       await user.save();
     }
     if (user && user.provider !== 'google') {
@@ -127,7 +132,7 @@ router.get('/google/callback', async (req, res) => {
       maxAge: 60 * 60 * 24 * 7,
     }));
 
-    res.redirect(`http://localhost:3000/oauth/success?nickname=${encodeURIComponent(user.nickname)}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
+    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
   } catch (err: any) {
     console.error('Google 로그인 실패:', err.response?.data || err.message);
     res.status(500).send('구글 로그인 실패');
@@ -171,7 +176,8 @@ router.get('/kakao/callback', async (req, res) => {
     let user = await User.findOne({ email });
     
     if (!user) {
-      user = new User({ email, nickname, provider: 'kakao', profileImage, createdAt: new Date() });
+      const tag = await generateUniqueTag(nickname);
+      user = new User({ email, nickname,tag, provider: 'kakao', profileImage, createdAt: new Date() });
       await user.save();
     }
 
@@ -190,7 +196,7 @@ router.get('/kakao/callback', async (req, res) => {
       maxAge: 60 * 60 * 24 * 7,
     }));
 
-    res.redirect(`http://localhost:3000/oauth/success?nickname=${encodeURIComponent(user.nickname)}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
+    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
   } catch (err: any) {
     console.error('Kakao 로그인 실패:', err.response?.data || err.message);
     res.status(500).send('카카오 로그인 실패');

@@ -1,41 +1,186 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useRef,useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 import Image from 'next/image';
-import { Mic, Headphones, Settings } from 'lucide-react';
+import { Mic, Headphones, Settings, Users, Store } from 'lucide-react';
 import { logout } from '@/store/authSlice';
+import RightPanel from '@/components/RightPanel';
+import { getSocket } from '@/lib/socket';
 
 export default function MainRedirectPage() {
   const router = useRouter();
   const nickname = useSelector((state: RootState) => state.auth.user?.nickname);
+  const email = useSelector((state: RootState) => state.auth.user?.email);
   const profileImage = useSelector((state: RootState) => state.auth.user?.profileImage);
+  const tag = useSelector((state: RootState) => state.auth.user?.tag);
   const dispatch = useDispatch();
+
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [mode, setMode] = useState<'friends' | 'dm' | 'add-friend' | 'shop'>('friends');
+  const [selectedFriend, setSelectedFriend] = useState<{ nickname: string; tag: string } | null>(null);
+  const registerSentRef = useRef(false);
+
+  const socket = getSocket();
+
+  const [pendingCount,setPendingCount] = useState(0);
+
+  const fetchPendingCount = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/pending-count`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPendingCount(data.count);
+      }
+    } catch (err) {
+      console.error('알림 수 가져오기 실패:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (email && socket.connected && !registerSentRef.current) {
+      socket.emit('register', email);
+      fetchPendingCount();
+      registerSentRef.current = true;
+    }
+
+    const handleConnect = () => {
+      if (email && !registerSentRef.current) {
+        socket.emit('register', email);
+        registerSentRef.current = true;
+      }
+    };
+
+    socket.on('connect', handleConnect);
+    socket.on('friendRequestReceived', (data) => {
+      console.log('📩 친구 요청 도착:', data);
+      fetchPendingCount();
+    });
+
+    return () => {
+      socket.off('connect', handleConnect);
+      socket.off('friendRequestReceived');
+    };
+  }, [email]);
+
+  const friendList = [
+    { nickname: '건모', tag: '1234' },
+    { nickname: '준모', tag: '4211' },
+    { nickname: '성모', tag: '7777' },
+  ];
 
   useEffect(() => {
     if (!nickname) router.replace('/');
   }, [nickname, router]);
 
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setIsSidebarOpen(false);
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   if (!nickname) return null;
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 w-[304px] h-[60px] bg-zinc-200 dark:bg-zinc-900 border-t border-r border-zinc-300 dark:border-zinc-700 px-3 flex items-center justify-between z-50">
+      {!isSidebarOpen && (
+        <button
+          onClick={() => setIsSidebarOpen(true)}
+          className="md:hidden fixed top-4 left-4 z-50 px-3 py-1 rounded bg-zinc-200 dark:bg-zinc-700 shadow text-lg"
+        >
+          ☰
+        </button>
+      )}
+
+      <div
+        className={`fixed top-0 left-0 h-full w-[304px] z-40 flex bg-transparent transform transition-transform duration-300 ease-in-out ${
+          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        } md:hidden`}
+      >
+        <aside className="w-16 bg-zinc-200 dark:bg-zinc-900 border-r border-zinc-300 dark:border-zinc-700 flex flex-col pt-4 pb-[60px] items-center">
+          <button onClick={() => setIsSidebarOpen(false)} className="absolute top-4 right-4 text-xl">
+            ✕
+          </button>
+          <button className="w-10 h-10 bg-zinc-300 dark:bg-zinc-700 rounded-full hover:bg-zinc-400 dark:hover:bg-zinc-600">+</button>
+        </aside>
+        <aside className="w-60 bg-zinc-100 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 flex flex-col pt-4 pb-[60px]">
+          <div className="border-b border-zinc-300 dark:border-zinc-700 pb-2 mb-2">
+            <div
+              className={`relative mx-2 mb-1 text-base font-medium flex items-center gap-2 rounded px-2 py-1 cursor-pointer transition ${
+                mode === 'friends'
+                  ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white'
+                  : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+              onClick={() => {
+                setMode('friends');
+                setSelectedFriend(null);
+                setIsSidebarOpen(false);
+              }}
+            >
+              <Users className="w-5 h-5" />
+              <span className="relative">
+                친구들
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-3 px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                    {pendingCount}
+                  </span>
+                )}
+              </span>
+            </div>
+            <div
+              className={`mx-2 text-base font-medium flex items-center gap-2 rounded px-2 py-1 cursor-pointer transition ${
+                mode === 'shop' ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white' : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+              onClick={() => {
+                setMode('shop');
+                setSelectedFriend(null);
+                setIsSidebarOpen(false);
+              }}
+            >
+              <Store className="w-5 h-5" /> 상점
+            </div>
+          </div>
+
+          <div className="flex flex-col space-y-2 px-2">
+            {friendList.map((friend) => (
+              <button
+                key={`${friend.nickname}#${friend.tag}`}
+                onClick={() => {
+                  setSelectedFriend(friend);
+                  setMode('dm');
+                  setIsSidebarOpen(false);
+                }}
+                className={`hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded-md text-left ${
+                  selectedFriend?.nickname === friend.nickname && selectedFriend?.tag === friend.tag
+                    ? 'bg-zinc-300 dark:bg-zinc-700 font-semibold'
+                    : ''
+                }`}
+              >
+                {friend.nickname}#{friend.tag}
+              </button>
+            ))}
+          </div>
+        </aside>
+      </div>
+      <div className="hidden md:flex fixed bottom-0 left-0 w-[304px] h-[60px] bg-zinc-200 dark:bg-zinc-900 border-t border-r border-zinc-300 dark:border-zinc-700 px-3 items-center justify-between z-40">
         <div className="flex items-center gap-2">
           <div className="w-11 h-11 rounded-full overflow-hidden bg-white/10 border border-white/20">
-            <Image
-              src={profileImage || '/images/default_profile.png'}
-              alt="profile"
-              width={48}
-              height={48}
-              className="object-cover w-full h-full"
-            />
+            <Image src={profileImage || '/images/default_profile.png'} alt="profile" width={48} height={48} className="object-cover w-full h-full" />
           </div>
-          <span className="text-sm font-medium text-black dark:text-white truncate">{nickname}</span>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-medium text-black dark:text-white truncate">{nickname}</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">#{tag}</span>
+          </div>
         </div>
-
         <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
           <button className="hover:text-black dark:hover:text-white transition"><Mic size={16} /></button>
           <button className="hover:text-black dark:hover:text-white transition"><Headphones size={16} /></button>
@@ -59,22 +204,103 @@ export default function MainRedirectPage() {
         </div>
       </div>
 
-      <main className="min-h-screen flex bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white">
-        <aside className="w-16 bg-zinc-200 dark:bg-zinc-900 text-black dark:text-white flex flex-col pt-4 pb-[60px] items-center space-y-4">
-          <button className="w-10 h-10 bg-zinc-300 dark:bg-zinc-700 rounded-full hover:bg-zinc-400 dark:hover:bg-zinc-600">#</button>
+      <main className="flex min-h-screen bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white">
+        <aside className="hidden md:flex w-16 flex-col items-center pt-4 pb-[60px] bg-zinc-200 dark:bg-zinc-900 border-r border-zinc-300 dark:border-zinc-700">
           <button className="w-10 h-10 bg-zinc-300 dark:bg-zinc-700 rounded-full hover:bg-zinc-400 dark:hover:bg-zinc-600">+</button>
         </aside>
 
-        <aside className="w-60 bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white flex flex-col pt-4 pb-[60px] border-r border-zinc-200 dark:border-zinc-700">
+        <aside className="hidden md:flex w-60 flex-col pt-4 pb-[60px] bg-zinc-100 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700">
+          <div className="border-b border-zinc-300 dark:border-zinc-700 pb-2 mb-2">
+            <div
+              className={`relative mx-2 mb-1 text-base font-medium flex items-center gap-2 rounded px-2 py-1 cursor-pointer transition ${
+                mode === 'friends'
+                  ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white'
+                  : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+              onClick={() => {
+                setMode('friends');
+                setSelectedFriend(null);
+              }}
+            >
+              <Users className="w-5 h-5" />
+              <span className="relative">
+                친구들
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1 -right-3 px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                    {pendingCount}
+                  </span>
+                )}
+              </span>
+            </div>
+            <div
+              className={`mx-2 text-base font-medium flex items-center gap-2 rounded px-2 py-1 cursor-pointer transition ${
+                mode === 'shop' ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white' : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+              onClick={() => {
+                setMode('shop');
+                setSelectedFriend(null);
+              }}
+            >
+              <Store className="w-5 h-5" /> 상점
+            </div>
+          </div>
+
           <div className="flex flex-col space-y-2 px-2">
-            <button className="hover:bg-zinc-200 dark:hover:bg-zinc-700 p-3 rounded-md text-left">친구1</button>
-            <button className="hover:bg-zinc-200 dark:hover:bg-zinc-700 p-3 rounded-md text-left">친구2</button>
-            <button className="hover:bg-zinc-200 dark:hover:bg-zinc-700 p-3 rounded-md text-left">친구3</button>
+            {friendList.map((friend) => (
+              <button
+                key={`${friend.nickname}#${friend.tag}`}
+                onClick={() => {
+                  setSelectedFriend(friend);
+                  setMode('dm');
+                }}
+                className={`hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded-md text-left ${
+                  selectedFriend?.nickname === friend.nickname && selectedFriend?.tag === friend.tag
+                    ? 'bg-zinc-300 dark:bg-zinc-700 font-semibold'
+                    : ''
+                }`}
+              >
+                {friend.nickname}#{friend.tag}
+              </button>
+            ))}
           </div>
         </aside>
+        <div className="md:hidden fixed bottom-0 left-0 w-full h-[60px] bg-zinc-200 dark:bg-zinc-900 border-t border-zinc-300 dark:border-zinc-700 px-3 flex items-center justify-between z-40">
+        <div className="flex items-center gap-2">
+          <div className="w-11 h-11 rounded-full overflow-hidden bg-white/10 border border-white/20">
+            <Image src={profileImage || '/images/default_profile.png'} alt="profile" width={48} height={48} className="object-cover w-full h-full" />
+          </div>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-medium text-black dark:text-white truncate">{nickname}</span>
+            <span className="text-xs text-zinc-500 dark:text-zinc-400">#{tag}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
+          <button className="hover:text-black dark:hover:text-white transition"><Mic size={16} /></button>
+          <button className="hover:text-black dark:hover:text-white transition"><Headphones size={16} /></button>
+          <button
+            onClick={async () => {
+              try {
+                await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
+                  method: 'POST',
+                  credentials: 'include',
+                });
+                dispatch(logout());
+                router.refresh();
+              } catch (e) {
+                console.error('Logout failed:', e);
+              }
+            }}
+            className="hover:text-black dark:hover:text-white transition"
+          >
+            <Settings size={16} />
+          </button>
+        </div>
+      </div>
+        
 
-        <section className="flex-1 p-6 overflow-y-auto">
-          {/* 콘텐츠 자리 */}
+
+        <section className="flex-1 min-h-screen pt-20 md:pt-6 p-6 overflow-y-auto">
+          <RightPanel mode={mode} setMode={setMode} selectedFriend={selectedFriend} />
         </section>
       </main>
     </>

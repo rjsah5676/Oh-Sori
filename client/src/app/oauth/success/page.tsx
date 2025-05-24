@@ -12,10 +12,11 @@ export default function OAuthSuccessPage() {
 
   const nickname = searchParams.get('nickname');
   const profileImage = searchParams.get('profileImage');
-
+  const tag = searchParams.get('tag');
+  const email = searchParams.get('email');
   useEffect(() => {
     if (nickname) {
-      dispatch(setUser({ nickname, profileImage }));
+      dispatch(setUser({ nickname, tag, profileImage, email }));
       router.replace('/');
     }
   }, [nickname, profileImage, dispatch]);

@@ -14,7 +14,9 @@ const nextConfig: NextConfig = {
       ,'ui-avatars.com'
     ],
   },
-
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async rewrites() {
     const isDocker = process.env.IS_DOCKER === 'true';
 

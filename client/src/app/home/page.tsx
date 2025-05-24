@@ -106,76 +106,95 @@ export default function MainRedirectPage() {
         </button>
       )}
 
-      <div
-        className={`fixed top-0 left-0 h-full w-[304px] z-40 flex bg-transparent transform transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        } md:hidden`}
-      >
-        <aside className="w-16 bg-zinc-200 dark:bg-zinc-900 border-r border-zinc-300 dark:border-zinc-700 flex flex-col pt-4 pb-[60px] items-center">
-          <button onClick={() => setIsSidebarOpen(false)} className="absolute top-4 right-4 text-xl z-50">
-            ✕
-          </button>
-          <button className="w-10 h-10 bg-zinc-300 dark:bg-zinc-700 rounded-full hover:bg-zinc-400 dark:hover:bg-zinc-600">+</button>
-        </aside>
-        <aside className="w-60 bg-zinc-100 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 flex flex-col pt-4 pb-[60px]">
-          <div className="border-b border-zinc-300 dark:border-zinc-700 pb-2 mb-2">
-            <div
-              className={`relative mx-2 mb-1 text-base font-medium flex items-center gap-2 rounded px-2 py-1 cursor-pointer transition ${
-                mode === 'friends'
-                  ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white'
-                  : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
-              }`}
-              onClick={() => {
-                setMode('friends');
-                setSelectedFriend(null);
-                setIsSidebarOpen(false);
-              }}
-            >
-              <Users className="w-5 h-5" />
-              <span className="relative">
-                친구들
-                {pendingCount > 0 && (
-                  <span className="absolute -top-1 -right-3 px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
-                    {pendingCount}
-                  </span>
-                )}
-              </span>
-            </div>
-            <div
-              className={`mx-2 text-base font-medium flex items-center gap-2 rounded px-2 py-1 cursor-pointer transition ${
-                mode === 'shop' ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white' : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
-              }`}
-              onClick={() => {
-                setMode('shop');
-                setSelectedFriend(null);
-                setIsSidebarOpen(false);
-              }}
-            >
-              <Store className="w-5 h-5" /> 상점
-            </div>
-          </div>
+      {isSidebarOpen && (
+        <div
+          className="fixed top-0 left-0 h-full w-[304px] z-40 flex bg-transparent transform transition-transform duration-300 ease-in-out md:hidden"
+        >
+          {/* 왼쪽 아이콘 바 */}
+          <aside className="w-16 bg-zinc-200 dark:bg-zinc-900 border-r border-zinc-300 dark:border-zinc-700 flex flex-col pt-4 pb-[60px] items-center">
+            <button className="w-10 h-10 bg-zinc-300 dark:bg-zinc-700 rounded-full hover:bg-zinc-400 dark:hover:bg-zinc-600">
+              +
+            </button>
+          </aside>
 
-          <div className="flex flex-col space-y-2 px-2">
-            {friendList.map((friend) => (
-              <button
-                key={`${friend.nickname}#${friend.tag}`}
+          {/* 오른쪽 메뉴 바 */}
+          <aside className="relative w-60 bg-zinc-100 dark:bg-zinc-800 border-r border-zinc-200 dark:border-zinc-700 flex flex-col pt-4 pb-[60px]">
+            {/* 오른쪽 중앙 닫기 버튼 */}
+            <button
+              onClick={() => setIsSidebarOpen(false)}
+              className="absolute top-1/2 right-[0px] -translate-y-1/2 z-50 bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white px-2 py-1 rounded-l shadow"
+            >
+              &lt;
+            </button>
+
+            {/* 메뉴 리스트 */}
+            <div className="border-b border-zinc-300 dark:border-zinc-700 pb-2 mb-2">
+              {/* 친구들 */}
+              <div
+                className={`relative mx-2 mb-1 text-base font-medium flex items-center gap-2 rounded px-2 py-1 cursor-pointer transition ${
+                  mode === 'friends'
+                    ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white'
+                    : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
                 onClick={() => {
-                  setSelectedFriend(friend);
-                  setMode('dm');
+                  setMode('friends');
+                  setSelectedFriend(null);
                   setIsSidebarOpen(false);
                 }}
-                className={`hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded-md text-left ${
-                  selectedFriend?.nickname === friend.nickname && selectedFriend?.tag === friend.tag
-                    ? 'bg-zinc-300 dark:bg-zinc-700 font-semibold'
-                    : ''
-                }`}
               >
-                {friend.nickname}#{friend.tag}
-              </button>
-            ))}
-          </div>
-        </aside>
-      </div>
+                <Users className="w-5 h-5" />
+                <span className="relative">
+                  친구들
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-1 -right-3 px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                      {pendingCount}
+                    </span>
+                  )}
+                </span>
+              </div>
+
+              {/* 상점 */}
+              <div
+                className={`mx-2 text-base font-medium flex items-center gap-2 rounded px-2 py-1 cursor-pointer transition ${
+                  mode === 'shop'
+                    ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white'
+                    : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                onClick={() => {
+                  setMode('shop');
+                  setSelectedFriend(null);
+                  setIsSidebarOpen(false);
+                }}
+              >
+                <Store className="w-5 h-5" />
+                상점
+              </div>
+            </div>
+
+            {/* 친구 리스트 */}
+            <div className="flex flex-col space-y-2 px-2">
+              {friendList.map((friend) => (
+                <button
+                  key={`${friend.nickname}#${friend.tag}`}
+                  onClick={() => {
+                    setSelectedFriend(friend);
+                    setMode('dm');
+                    setIsSidebarOpen(false);
+                  }}
+                  className={`hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded-md text-left ${
+                    selectedFriend?.nickname === friend.nickname && selectedFriend?.tag === friend.tag
+                      ? 'bg-zinc-300 dark:bg-zinc-700 font-semibold'
+                      : ''
+                  }`}
+                >
+                  {friend.nickname}#{friend.tag}
+                </button>
+              ))}
+            </div>
+          </aside>
+        </div>
+      )}
+
       <div className="hidden md:flex fixed bottom-0 left-0 w-[304px] h-[60px] bg-zinc-200 dark:bg-zinc-900 border-t border-r border-zinc-300 dark:border-zinc-700 px-3 items-center justify-between z-40">
         <div className="flex items-center gap-2">
           <UserAvatar profileImage={profileImage} color={color ?? undefined} />

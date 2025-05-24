@@ -1,8 +1,9 @@
 'use client';
 
 import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 
-export default function OAuthDuplicatePage() {
+function DuplicateContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const email = searchParams.get('email');
@@ -21,5 +22,13 @@ export default function OAuthDuplicatePage() {
         로그인 페이지로 이동
       </button>
     </div>
+  );
+}
+
+export default function OAuthDuplicatePage() {
+  return (
+    <Suspense fallback={<div className="text-center mt-10">로딩 중...</div>}>
+      <DuplicateContent />
+    </Suspense>
   );
 }

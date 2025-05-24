@@ -26,6 +26,7 @@ app.use(
 );
 
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // 라우트 등록
 import authRouter from "./routes/auth";

@@ -1,9 +1,10 @@
-import { Router } from 'express';
+import express, { Router, Request, Response, RequestHandler } from 'express';
 import axios from 'axios';
 import jwt from 'jsonwebtoken';
 import cookie from 'cookie';
 import User from '../models/User';
 import { generateUniqueTag } from '../utils/generateTag';
+import bcrypt from 'bcrypt';
 
 const router = Router();
 
@@ -75,7 +76,7 @@ router.get('/naver/callback', async (req, res) => {
     }));
 
     // 유저 정보는 쓸 수 있게 쿼리로 전달
-    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
+    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
   } catch (err: any) {
     console.error('Naver 로그인 실패:', err.response?.data || err.message);
     res.status(500).send('로그인 실패');
@@ -132,8 +133,8 @@ router.get('/google/callback', async (req, res) => {
       maxAge: 60 * 60 * 24 * 7,
     }));
 
-    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
-  } catch (err: any) {
+    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
+   } catch (err: any) {
     console.error('Google 로그인 실패:', err.response?.data || err.message);
     res.status(500).send('구글 로그인 실패');
   }
@@ -195,8 +196,8 @@ router.get('/kakao/callback', async (req, res) => {
       path: '/',
       maxAge: 60 * 60 * 24 * 7,
     }));
+    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
 
-    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}`);
   } catch (err: any) {
     console.error('Kakao 로그인 실패:', err.response?.data || err.message);
     res.status(500).send('카카오 로그인 실패');
@@ -215,5 +216,128 @@ router.post('/logout', (req, res) => {
   res.status(200).json({ message: 'Logged out' });
 });
 
+interface RegisterRequestBody {
+  email: string;
+  password: string;
+  nickname: string;
+  profileImage?: string;
+}
+
+const registerHandler = async (
+    req: Request<{}, {}, RegisterRequestBody>,
+    res: Response
+  )  => {
+  const { email, password, nickname, profileImage } = req.body;
+   if (!email || !password || !nickname) {
+      return res.status(400).json({ message: '필수 항목이 누락되었습니다.' });
+    }
+
+    try {
+      const existing = await User.findOne({ email });
+      if (existing) {
+        return res.status(409).json({ message: '이미 가입된 이메일입니다.' });
+      }
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const tag = await generateUniqueTag(nickname);
+
+      const defaultColors = ['#ffb6b6', '#b6e3ff', '#b6ffba', '#fdfd96', '#c3b6ff', '#ffd6a5'];
+      const randomColor = defaultColors[Math.floor(Math.random() * defaultColors.length)];
+
+      const user = new User({
+        email,
+        nickname,
+        tag,
+        provider: 'local',
+        password: hashedPassword,
+        profileImage: '',
+        color: randomColor,
+        createdAt: new Date(),
+      });
+
+      await user.save();
+
+      const payload = { email: user.email, nickname: user.nickname };
+      const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+      res.setHeader(
+        'Set-Cookie',
+        cookie.serialize('accessToken', token, {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          path: '/',
+          maxAge: 60 * 60 * 24 * 7,
+        })
+      );
+
+      return res.status(201).json({
+        message: '회원가입 성공',
+        user: {
+          email: user.email,
+          nickname: user.nickname,
+          tag: user.tag,
+          profileImage: user.profileImage,
+        },
+      });
+    } catch (err) {
+      console.error('회원가입 에러:', err);
+      return res.status(500).json({ message: '회원가입 실패' });
+    }
+};
+
+router.post('/register', registerHandler as unknown as express.RequestHandler);
+
+interface LoginRequestBody {
+  email: string;
+  password: string;
+}
+
+const loginHandler = async (
+  req: Request<{}, {}, LoginRequestBody>,
+  res: Response
+) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({ message: '이메일과 비밀번호를 모두 입력해주세요.' });
+  }
+
+  try {
+    const user = await User.findOne({ email });
+
+    if (!user || user.provider !== 'local') {
+      return res.status(401).json({ message: '가입된 계정이 없거나 소셜 로그인 계정입니다.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password!);
+    if (!isMatch) {
+      return res.status(401).json({ message: '비밀번호가 일치하지 않습니다.' });
+    }
+
+    const payload = { email: user.email, nickname: user.nickname };
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+    res.setHeader(
+      'Set-Cookie',
+      cookie.serialize('accessToken', token, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7,
+      })
+    );
+
+    return res.redirect(
+      `http://localhost:3000/oauth/success?email=${encodeURIComponent(user.email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`
+    );
+  } catch (err) {
+    console.error('로그인 에러:', err);
+    return res.status(500).json({ message: '로그인 실패' });
+  }
+};
+
+router.post('/login', loginHandler as unknown as express.RequestHandler);
 
 export default router;

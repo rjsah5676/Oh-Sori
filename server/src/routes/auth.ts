@@ -95,7 +95,6 @@ router.get('/google', (req, res) => {
 // 2. 구글 → 콜백 처리
 router.get('/google/callback', async (req, res) => {
   const { code } = req.query;
-  console.log('✅ redirect_uri 확인:', process.env.GOOGLE_REDIRECT_URI);
   try {
     const tokenRes = await axios.post('https://oauth2.googleapis.com/token', null, {
       params: {
@@ -332,9 +331,14 @@ const loginHandler = async (
       })
     );
 
-    return res.redirect(
-      `${process.env.SOCKET_CLIENT_ORIGIN}/oauth/success?email=${encodeURIComponent(user.email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`
-    );
+    return res.status(200).json({
+      email: user.email,
+      nickname: user.nickname,
+      tag: user.tag,
+      profileImage: user.profileImage,
+      color: user.color || '#ccc',
+    });
+    
   } catch (err) {
     console.error('로그인 에러:', err);
     return res.status(500).json({ message: '로그인 실패' });

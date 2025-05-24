@@ -45,9 +45,11 @@ export default function MainRedirectPage() {
   };
 
   useEffect(() => {
+    if (!registerSentRef.current && email) {
+      fetchPendingCount();
+    }
     if (email && socket.connected && !registerSentRef.current) {
       socket.emit('register', email);
-      fetchPendingCount();
       registerSentRef.current = true;
     }
 

@@ -15,32 +15,33 @@ export default function BasicLoginPage() {
     }
     };
 
-  const handleSubmit = () => {
-    if (!email || !password) {
-      setError('이메일과 비밀번호를 모두 입력해주세요.');
-      return;
-    }
+    const handleSubmit = async () => {
+      if (!email || !password) {
+        setError('이메일과 비밀번호를 모두 입력해주세요.');
+        return;
+      }
 
-    // 동적으로 폼 생성해서 submit
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `${apiUrl}/api/auth/login`;
+      try {
+        const res = await fetch(`${apiUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({ email, password }),
+        });
 
-    const emailInput = document.createElement('input');
-    emailInput.type = 'hidden';
-    emailInput.name = 'email';
-    emailInput.value = email;
-    form.appendChild(emailInput);
-
-    const pwInput = document.createElement('input');
-    pwInput.type = 'hidden';
-    pwInput.name = 'password';
-    pwInput.value = password;
-    form.appendChild(pwInput);
-
-    document.body.appendChild(form);
-    form.submit();
-  };
+        if (res.ok) {
+          const data = await res.json();
+          window.location.href = `/oauth/success?email=${data.email}&nickname=${data.nickname}&tag=${data.tag}&profileImage=${data.profileImage}&color=${data.color}`;
+        } else {
+          const data = await res.json();
+          setError(data.message || '로그인 실패');
+        }
+      } catch (err) {
+        setError('네트워크 오류가 발생했습니다.');
+      }
+    };
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center bg-white dark:bg-zinc-900 text-black dark:text-white px-4">

@@ -354,17 +354,17 @@ export default function RightPanel({ mode, setMode, selectedFriend,setPendingCou
           친구의 사용자명을 <span className="font-mono">이름#태그</span> 형식으로 입력해주세요.
         </p>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 w-full">
           <input
             type="text"
             value={friendInput || ''}
             onChange={(e) => setFriendInput(e.target.value)}
             placeholder="예: gunmo#1234"
-            className="flex-1 px-3 py-2 rounded-md border bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-black dark:text-white"
+            className="flex-1 min-w-0 px-3 py-2 rounded-md border bg-zinc-100 dark:bg-zinc-800 border-zinc-300 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm text-black dark:text-white"
           />
           <button
             onClick={handleAddFriend}
-            className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm"
+            className="px-4 py-2 whitespace-nowrap rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-sm"
           >
             보내기
           </button>

@@ -5,6 +5,9 @@ import cookie from 'cookie';
 import User from '../models/User';
 import { generateUniqueTag } from '../utils/generateTag';
 import bcrypt from 'bcrypt';
+import dotenv from "dotenv";
+
+dotenv.config();
 
 const router = Router();
 
@@ -61,7 +64,7 @@ router.get('/naver/callback', async (req, res) => {
       await user.save();
     }
     if (user && user.provider !== 'naver') {
-      return res.redirect(`http://localhost:3000/oauth/duplicate?email=${encodeURIComponent(email)}&provider=${user.provider}`);
+      return res.redirect(`${process.env.SOCKET_CLIENT_ORIGIN}/oauth/duplicate?email=${encodeURIComponent(email)}&provider=${user.provider}`);
     }
     const payload = { email: user.email, nickname: user.nickname };
     const jwtToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
@@ -76,7 +79,7 @@ router.get('/naver/callback', async (req, res) => {
     }));
 
     // 유저 정보는 쓸 수 있게 쿼리로 전달
-    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
+    res.redirect(`${process.env.SOCKET_CLIENT_ORIGIN}/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
   } catch (err: any) {
     console.error('Naver 로그인 실패:', err.response?.data || err.message);
     res.status(500).send('로그인 실패');
@@ -119,7 +122,7 @@ router.get('/google/callback', async (req, res) => {
       await user.save();
     }
     if (user && user.provider !== 'google') {
-      return res.redirect(`http://localhost:3000/oauth/duplicate?email=${encodeURIComponent(email)}&provider=${user.provider}`);
+      return res.redirect(`${process.env.SOCKET_CLIENT_ORIGIN}/oauth/duplicate?email=${encodeURIComponent(email)}&provider=${user.provider}`);
     }
 
     const payload = { email: user.email, nickname: user.nickname };
@@ -133,7 +136,7 @@ router.get('/google/callback', async (req, res) => {
       maxAge: 60 * 60 * 24 * 7,
     }));
 
-    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
+    res.redirect(`${process.env.SOCKET_CLIENT_ORIGIN}/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
    } catch (err: any) {
     console.error('Google 로그인 실패:', err.response?.data || err.message);
     res.status(500).send('구글 로그인 실패');
@@ -183,7 +186,7 @@ router.get('/kakao/callback', async (req, res) => {
     }
 
     if (user && user.provider !== 'kakao') {
-      return res.redirect(`http://localhost:3000/oauth/duplicate?email=${encodeURIComponent(email)}&provider=${user.provider}`);
+      return res.redirect(`${process.env.SOCKET_CLIENT_ORIGIN}/oauth/duplicate?email=${encodeURIComponent(email)}&provider=${user.provider}`);
     }
 
     const payload = { email: user.email, nickname: user.nickname };
@@ -196,7 +199,7 @@ router.get('/kakao/callback', async (req, res) => {
       path: '/',
       maxAge: 60 * 60 * 24 * 7,
     }));
-    res.redirect(`http://localhost:3000/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
+    res.redirect(`${process.env.SOCKET_CLIENT_ORIGIN}/oauth/success?email=${encodeURIComponent(email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`);
 
   } catch (err: any) {
     console.error('Kakao 로그인 실패:', err.response?.data || err.message);
@@ -330,7 +333,7 @@ const loginHandler = async (
     );
 
     return res.redirect(
-      `http://localhost:3000/oauth/success?email=${encodeURIComponent(user.email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`
+      `${process.env.SOCKET_CLIENT_ORIGIN}/oauth/success?email=${encodeURIComponent(user.email)}&nickname=${encodeURIComponent(user.nickname)}&tag=${user.tag}&profileImage=${encodeURIComponent(user.profileImage || '')}&color=${encodeURIComponent(user.color || '#ccc')}`
     );
   } catch (err) {
     console.error('로그인 에러:', err);

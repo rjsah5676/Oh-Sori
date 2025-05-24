@@ -1,4 +1,7 @@
 import { Server } from 'socket.io';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 let ioInstance: Server | null = null;
 
@@ -8,7 +11,7 @@ export const userSocketMap = new Map<string, string>();
 export const initSocket = (server: any) => {
   const io = new Server(server, {
     cors: {
-      origin: 'http://localhost:3000',
+      origin: process.env.SOCKET_CLIENT_ORIGIN,
       credentials: true,
     },
   });

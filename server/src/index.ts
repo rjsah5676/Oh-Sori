@@ -20,7 +20,7 @@ initSocket(server);
 // CORS 설정
 app.use(
   cors({
-    origin: "http://localhost:3000",
+    origin: process.env.SOCKET_CLIENT_ORIGIN,
     credentials: true,
   })
 );

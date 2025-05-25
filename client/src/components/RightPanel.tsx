@@ -4,18 +4,30 @@ import { useState, useEffect } from 'react';
 import { Users, MessageCircle, X } from 'lucide-react';
 import { getSocket } from '@/lib/socket';
 import UserAvatar from '@/components/UserAvatar';
+import DMRoomPage from './dm/DMRoomPage';
 
-interface RightPanelProps {
-  mode: 'friends' | 'dm' | 'add-friend'|'shop';
-  setMode: (mode: 'friends' | 'dm' | 'add-friend') => void;
-  selectedFriend: { nickname: string; tag: string } | null;
-  pendingCount: number;
-  setPendingCount: React.Dispatch<React.SetStateAction<number>>;
-  friendStatuses: Record<string, 'online' | 'offline' | 'away' | 'dnd'|null>;
-  setFriendStatuses: React.Dispatch<React.SetStateAction<Record<string, 'online' | 'offline' | 'away' | 'dnd'|null>>>;
+interface FriendWithRoom {
+  nickname: string;
+  tag: string;
+  email: string;
+  profileImage?: string;
+  color: string;
+  userStatus?: 'online' | 'offline' | 'away' | 'dnd';
+  roomId: string;
 }
 
-export default function RightPanel({ setFriendStatuses, friendStatuses, mode, setMode, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
+interface RightPanelProps {
+  mode: 'friends' | 'dm' | 'add-friend' | 'shop';
+  setMode: (mode: 'friends' | 'dm' | 'add-friend') => void;
+  selectedFriend: FriendWithRoom | null;
+  setSelectedFriend: React.Dispatch<React.SetStateAction<FriendWithRoom | null>>;
+  pendingCount: number;
+  setPendingCount: React.Dispatch<React.SetStateAction<number>>;
+  friendStatuses: Record<string, 'online' | 'offline' | 'away' | 'dnd' | null>;
+  setFriendStatuses: React.Dispatch<React.SetStateAction<Record<string, 'online' | 'offline' | 'away' | 'dnd' | null>>>;
+}
+
+export default function RightPanel({ setFriendStatuses, friendStatuses, mode, setMode, setSelectedFriend, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
   const [friendTab, setFriendTab] = useState<'online' | 'all' | 'pending'>('online');
   const [friendSearch, setFriendSearch] = useState('');
   const [friendInput, setFriendInput] = useState('');
@@ -28,6 +40,23 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
   const [friendList, setFriendList] = useState<
     { nickname: string; tag: string; email: string; profileImage?: string, color:string }[]
   >([]); //실제 친구 목록임
+
+
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(friendSearch);
+    }, 500);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [friendSearch]);
+
+  const filteredFriends = friendList.filter((friend) =>
+    `${friend.nickname}#${friend.tag}`.toLowerCase().includes(debouncedSearch.toLowerCase())
+  );
 
   useEffect(() => {
     if (friendTab !== 'pending') {
@@ -183,6 +212,30 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
     }
   };
 
+  const handleStartDM = async (targetEmail: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dms/check-or-create?target=${encodeURIComponent(targetEmail)}`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+
+      if (res.ok && data.roomId) {
+        const target = friendList.find(f => f.email === targetEmail);
+        if (target) {
+          setSelectedFriend({ ...target, roomId: data.roomId }); // ✅ 여기 roomId 추가
+        }
+        setMode('dm');
+        getSocket().emit('joinRoom', data.roomId); // ✅ 여기서도 제대로 된 roomId로 join
+      } else {
+        alert('DM 방 생성 실패');
+      }
+    } catch (err) {
+      console.error('DM 생성 오류:', err);
+      alert('DM 생성 중 오류 발생');
+    }
+  };
+
+
   useEffect(() => {
     const socket = getSocket();
 
@@ -261,6 +314,14 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
           </button>
         </div>
 
+        {(friendTab === 'online' || friendTab === 'all') && filteredFriends.length > 0 && (
+          <div className="text-sm text-zinc-500 dark:text-zinc-400">
+            친구 수: {friendTab === 'online'
+              ? filteredFriends.filter(f => friendStatuses[f.email] === 'online').length
+              : filteredFriends.length}명
+          </div>
+        )}
+
         <div className="relative">
           <input
             type="text"
@@ -323,13 +384,10 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
 
           {friendTab === 'online' && (
             <>
-              {friendList
+              {filteredFriends
                 .filter((friend) => friendStatuses[friend.email] === 'online')
                 .map((friend) => (
-                  <div
-                    key={friend.email}
-                    className="p-2 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between"
-                  >
+                  <div key={friend.email} className="p-2 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <UserAvatar
                         userStatus="online"
@@ -342,19 +400,17 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
                       </div>
                     </div>
                     <div className="flex gap-1 items-center">
-                      <button className="p-1 hover:text-blue-500">
+                      <button className="p-1 hover:text-blue-500" onClick={() => handleStartDM(friend.email)}>
                         <MessageCircle size={16} />
                       </button>
-                      <button
-                        onClick={() => handleDeleteFriend(friend.email)}
-                        className="p-1 hover:text-red-600"
-                      >
+                      <button onClick={() => handleDeleteFriend(friend.email)} className="p-1 hover:text-red-600">
                         <X size={16} />
                       </button>
                     </div>
                   </div>
-                ))}
-              {friendList.filter((f) => friendStatuses[f.email] === 'online').length === 0 && (
+              ))}
+
+              {filteredFriends.filter((f) => friendStatuses[f.email] === 'online').length === 0 && (
                 <div className="p-3 rounded-md bg-zinc-100 dark:bg-zinc-700 text-sm text-zinc-600 dark:text-zinc-300">
                   현재 온라인인 친구가 없습니다.
                 </div>
@@ -362,20 +418,31 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
             </>
           )}
           {friendTab === 'all' && (
-            friendList.map((friend) => (
-              <div key={friend.email} className="p-2 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <UserAvatar userStatus={friendStatuses[friend.email]} profileImage={friend.profileImage} color={friend.color} size={44} />
-                  <div className="text-sm font-medium">
-                    {friend.nickname}#{friend.tag}
+            filteredFriends.length === 0 ? (
+              <div className="p-3 rounded-md bg-zinc-100 dark:bg-zinc-700 text-sm text-zinc-600 dark:text-zinc-300">
+                친구가 없습니다.
+              </div>
+            ) : (
+              filteredFriends.map((friend) => (
+                <div key={friend.email} className="p-2 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <UserAvatar
+                      userStatus={friendStatuses[friend.email]}
+                      profileImage={friend.profileImage}
+                      color={friend.color}
+                      size={44}
+                    />
+                    <div className="text-sm font-medium">
+                      {friend.nickname}#{friend.tag}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 items-center">
+                    <button className="p-1 hover:text-blue-500"><MessageCircle size={16} onClick={() => handleStartDM(friend.email)}/></button>
+                    <button onClick={() => handleDeleteFriend(friend.email)} className="p-1 hover:text-red-600"><X size={16} /></button>
                   </div>
                 </div>
-                <div className="flex gap-1 items-center">
-                  <button className="p-1 hover:text-blue-500"><MessageCircle size={16} /></button>
-                  <button onClick={() => handleDeleteFriend(friend.email)} className="p-1 hover:text-red-600"><X size={16} /></button>
-                </div>
-              </div>
-            ))
+              ))
+            )
           )}
         </div>
       </div>
@@ -384,10 +451,7 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
 
   if (mode === 'dm') {
     return (
-      <div>
-        <h2 className="text-lg font-semibold mb-2">건모#1234님과의 DM</h2>
-        <div className="text-base text-zinc-600 dark:text-zinc-300">채팅 내용 들어갈 자리</div>
-      </div>
+      <DMRoomPage selectedFriend={selectedFriend}/>
     );
   }
 

@@ -6,6 +6,7 @@ import User from '../models/User';
 import { generateUniqueTag } from '../utils/generateTag';
 import bcrypt from 'bcrypt';
 import dotenv from "dotenv";
+import { getUserStatus } from '../services/statusService';
 
 dotenv.config();
 
@@ -346,5 +347,26 @@ const loginHandler = async (
 };
 
 router.post('/login', loginHandler as unknown as express.RequestHandler);
+
+const statusHandler = async (
+  req: Request<{ email: string }>,
+  res: Response
+) => {
+  const { email } = req.params;
+
+  if (!email) {
+    return res.status(400).json({ message: '이메일이 없습니다.' });
+  }
+
+  try {
+    const status = await getUserStatus(email);
+    return res.status(200).json({ status }); // { status: 'online' }
+  } catch (err) {
+    console.error('상태 조회 실패:', err);
+    return res.status(500).json({ message: '상태 조회 실패' });
+  }
+};
+
+router.get('/status/:email', statusHandler as unknown as express.RequestHandler);
 
 export default router;

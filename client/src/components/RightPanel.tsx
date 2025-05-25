@@ -11,9 +11,11 @@ interface RightPanelProps {
   selectedFriend: { nickname: string; tag: string } | null;
   pendingCount: number;
   setPendingCount: React.Dispatch<React.SetStateAction<number>>;
+  friendStatuses: Record<string, 'online' | 'offline' | 'away' | 'dnd'|null>;
+  setFriendStatuses: React.Dispatch<React.SetStateAction<Record<string, 'online' | 'offline' | 'away' | 'dnd'|null>>>;
 }
 
-export default function RightPanel({ mode, setMode, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
+export default function RightPanel({ setFriendStatuses, friendStatuses, mode, setMode, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
   const [friendTab, setFriendTab] = useState<'online' | 'all' | 'pending'>('online');
   const [friendSearch, setFriendSearch] = useState('');
   const [friendInput, setFriendInput] = useState('');
@@ -63,6 +65,33 @@ export default function RightPanel({ mode, setMode, selectedFriend,setPendingCou
       fetchPendingList();
     }
   }, [friendTab]);
+
+  useEffect(() => {
+    if (friendTab === 'all' || friendTab === 'online') {
+      const fetchFriendStatuses = async () => {
+        const emails = friendList.map((f) => f.email);
+        if (emails.length === 0) return;
+
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/status-bulk`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ emails }),
+          });
+
+          const data = await res.json();
+          if (res.ok) {
+            setFriendStatuses(data.statuses);
+          }
+        } catch (err) {
+          console.error('친구 상태 불러오기 실패:', err);
+        }
+      };
+
+      fetchFriendStatuses();
+    }
+  }, [friendList, friendTab]);
 
   const handleAddFriend = async () => {
     const [nickname, tag] = friendInput.split('#');
@@ -265,9 +294,9 @@ export default function RightPanel({ mode, setMode, selectedFriend,setPendingCou
               </div>
             ) : (
               pendingList.map((req) => (
-                <div key={`${req.email}`} className="p-3 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
+                <div key={`${req.email}`} className="p-2 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <UserAvatar profileImage={req.profileImage} color={req.color} size={32} />
+                    <UserAvatar profileImage={req.profileImage} color={req.color} size={44} />
                     <div className="text-sm font-medium">
                       {req.nickname}#{req.tag}
                     </div>
@@ -301,9 +330,9 @@ export default function RightPanel({ mode, setMode, selectedFriend,setPendingCou
           )}
           {friendTab === 'all' && (
             friendList.map((friend) => (
-              <div key={friend.email} className="p-3 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
+              <div key={friend.email} className="p-2 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <UserAvatar profileImage={friend.profileImage} color={friend.color} size={32} />
+                  <UserAvatar userStatus={friendStatuses[friend.email]} profileImage={friend.profileImage} color={friend.color} size={44} />
                   <div className="text-sm font-medium">
                     {friend.nickname}#{friend.tag}
                   </div>

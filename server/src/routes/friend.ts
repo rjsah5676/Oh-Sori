@@ -4,6 +4,7 @@ import User from '../models/User';
 import Friend from '../models/Friend';
 import FriendRequest from '../models/FriendRequest';
 import { getIO, userSocketMap } from '../socket';
+import { getUserStatus } from '../services/statusService';
 
 const router = Router();
 const JWT_SECRET = process.env.JWT_SECRET!;
@@ -289,6 +290,31 @@ const handleDeleteFriend = async (req: Request, res: Response) => {
   }
 };
 
+const statusBulkHandler = async (
+  req: Request<{}, {}, { emails: string[] }>,
+  res: Response
+) => {
+  const { emails } = req.body;
+
+  if (!Array.isArray(emails) || emails.length === 0) {
+    return res.status(400).json({ message: 'emails 배열이 필요합니다.' });
+  }
+
+  try {
+    const results: Record<string, 'online' | 'offline' | 'away' | 'dnd'> = {};
+
+    for (const email of emails) {
+      const status = await getUserStatus(email);
+      results[email] = status;
+    }
+
+    return res.status(200).json({ statuses: results });
+  } catch (err) {
+    console.error('상태 일괄 조회 실패:', err);
+    return res.status(500).json({ message: '상태 조회 실패' });
+  }
+};
+
 router.post('/add', handleFriendAdd as unknown as express.RequestHandler);
 
 router.get('/pending-count', handlePendingCount as unknown as express.RequestHandler);
@@ -302,5 +328,7 @@ router.post('/reject', handleRejectFriend as unknown as express.RequestHandler);
 router.get('/list', handleFriendList as unknown as express.RequestHandler);
 
 router.post('/delete', handleDeleteFriend as unknown as express.RequestHandler);
+
+router.post('/status-bulk', statusBulkHandler as unknown as express.RequestHandler);
 
 export default router;

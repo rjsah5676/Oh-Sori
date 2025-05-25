@@ -1,5 +1,6 @@
 import { Server } from 'socket.io';
 import dotenv from 'dotenv';
+import { setUserStatus, getUserStatus } from './services/statusService';
 
 dotenv.config();
 
@@ -19,15 +20,25 @@ export const initSocket = (server: any) => {
   io.on('connection', (socket) => {
     console.log('🟢 소켓 연결됨:', socket.id);
 
-    socket.on('register', (email: string) => {
+    socket.on('register', async (email: string) => {
       userSocketMap.set(email, socket.id);
       console.log(`✅ 사용자 등록됨: ${email} → ${socket.id}`);
+      await setUserStatus(email, 'online');
+
+      const currentStatus = await getUserStatus(email);
+      io.emit('status-update', { email, status: currentStatus });
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       console.log('🔴 소켓 해제됨:', socket.id);
       for (const [email, id] of userSocketMap.entries()) {
-        if (id === socket.id) userSocketMap.delete(email);
+        if (id === socket.id) {
+          userSocketMap.delete(email);
+          await setUserStatus(email, 'offline');
+
+          const currentStatus = await getUserStatus(email);
+          io.emit('status-update', { email, status: currentStatus });
+        }
       }
     });
   });

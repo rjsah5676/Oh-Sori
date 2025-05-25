@@ -30,6 +30,10 @@ export default function MainRedirectPage() {
 
   const [pendingCount,setPendingCount] = useState(0);
 
+  const [userStatus, setUserStatus] = useState<'online' | 'offline' | 'away' | 'dnd'| null>(null);
+
+  const [friendStatuses, setFriendStatuses] = useState<Record<string, 'online' | 'offline' | 'away' | 'dnd'|null>>({});
+
   const fetchPendingCount = async () => {
     try {
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/pending-count`, {
@@ -45,6 +49,19 @@ export default function MainRedirectPage() {
   };
 
   useEffect(() => {
+    if(email) {
+      const fetchStatus = async () => {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/status/${email}`);
+          const data = await res.json();
+          setUserStatus(data.status); // 'online' or 'offline'
+        } catch (e) {
+          console.error('상태 가져오기 실패:', e);
+        }
+      };
+
+      fetchStatus();
+    }
     if (!registerSentRef.current && email) {
       fetchPendingCount();
     }
@@ -60,15 +77,25 @@ export default function MainRedirectPage() {
       }
     };
 
+    const handleStatusUpdate = (data: { email: string; status: 'online' | 'offline' | 'away' | 'dnd'|null }) => {
+      setFriendStatuses((prev) => ({
+        ...prev,
+        [data.email]: data.status,
+      }));
+    };
+
+
     socket.on('connect', handleConnect);
     socket.on('friendRequestReceived', (data) => {
       console.log('📩 친구 요청 도착:', data);
       fetchPendingCount();
     });
+    socket.on('status-update', handleStatusUpdate);
 
     return () => {
       socket.off('connect', handleConnect);
       socket.off('friendRequestReceived');
+      socket.off('status-update', handleStatusUpdate);
     };
   }, [email]);
 
@@ -197,7 +224,7 @@ export default function MainRedirectPage() {
 
       <div className="hidden md:flex fixed bottom-0 left-0 w-[304px] h-[60px] bg-zinc-200 dark:bg-zinc-900 border-t border-r border-zinc-300 dark:border-zinc-700 px-3 items-center justify-between z-40">
         <div className="flex items-center gap-2">
-          <UserAvatar profileImage={profileImage} color={color ?? undefined} />
+          <UserAvatar profileImage={profileImage} userStatus={userStatus} color={color ?? undefined} />
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-medium text-black dark:text-white truncate">{nickname}</span>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">#{tag}</span>
@@ -288,9 +315,7 @@ export default function MainRedirectPage() {
         </aside>
         <div className="md:hidden fixed bottom-0 left-0 w-full h-[60px] bg-zinc-200 dark:bg-zinc-900 border-t border-zinc-300 dark:border-zinc-700 px-3 flex items-center justify-between z-40">
         <div className="flex items-center gap-2">
-          <div className="w-11 h-11 rounded-full overflow-hidden bg-white/10 border border-white/20">
-            <Image src={profileImage || '/images/default_profile.png'} alt="profile" width={48} height={48} className="object-cover w-full h-full" />
-          </div>
+          <UserAvatar profileImage={profileImage} userStatus={userStatus} color={color ?? undefined} />
           <div className="flex flex-col leading-tight">
             <span className="text-sm font-medium text-black dark:text-white truncate">{nickname}</span>
             <span className="text-xs text-zinc-500 dark:text-zinc-400">#{tag}</span>
@@ -319,7 +344,7 @@ export default function MainRedirectPage() {
         </div>
       </div>
         <section className="flex-1 min-h-screen pt-20 md:pt-6 p-6 overflow-y-auto">
-          <RightPanel mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
+          <RightPanel setFriendStatuses={setFriendStatuses} friendStatuses={friendStatuses} mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
         </section>
       </main>
     </>

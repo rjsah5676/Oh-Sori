@@ -138,7 +138,7 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
   if (!selectedFriend) return null;
 
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-zinc-900">
+    <div className="h-[90vh] md:h-[96vh] flex flex-col bg-white dark:bg-zinc-900">
       <div className="shrink-0">
         <DMHeader
           nickname={selectedFriend.nickname}
@@ -149,18 +149,21 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
         />
       </div>
 
-      <div className="overflow-y-auto px-4 py-2 space-y-4 min-h-0 h-[calc(100dvh-200px)] md:h-auto">
+      <div className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
         {messages.map((msg, idx) => {
           const isMine = msg.sender === myEmail;
           return (
-            <div key={msg._id || idx} className={`flex gap-3 ${isMine ? 'flex-row-reverse' : ''}`}>
+            <div
+              key={msg._id || idx}
+              className={`flex gap-3 flex-wrap items-start ${isMine ? 'flex-row-reverse' : ''}`}
+            >
               <UserAvatar
                 profileImage={isMine ? myProfileImage : selectedFriend.profileImage}
                 userStatus={isMine ? 'online' : userStatus || 'offline'}
                 color={isMine ? undefined : selectedFriend.color}
                 size={36}
               />
-              <div className={`flex flex-col max-w-md ${isMine ? 'items-end' : 'items-start'}`}>
+              <div className={`flex flex-col max-w-md min-w-0 ${isMine ? 'items-end' : 'items-start'}`}>
                 <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                   <span className="text-xs text-zinc-500">
                     {new Date(msg.createdAt).toLocaleString('ko-KR', {
@@ -171,10 +174,10 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
                   {isMine ? myName : selectedFriend.nickname}
                 </div>
                 <div
-                  className={`whitespace-pre-wrap px-4 py-2 rounded-lg text-sm ${
+                  className={`w-fit max-w-[80%] whitespace-pre-wrap break-words px-4 py-2 rounded-lg text-sm ${
                     isMine
-                      ? 'bg-indigo-500 text-white'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white'
+                      ? 'bg-indigo-500 text-white self-end'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white self-start'
                   }`}
                 >
                   {msg.content}

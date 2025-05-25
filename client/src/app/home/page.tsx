@@ -11,6 +11,16 @@ import RightPanel from '@/components/RightPanel';
 import { getSocket } from '@/lib/socket';
 import UserAvatar from '@/components/UserAvatar';
 
+interface FriendWithRoom {
+  nickname: string;
+  tag: string;
+  email: string;
+  profileImage?: string;
+  color: string;
+  userStatus?: 'online' | 'offline' | 'away' | 'dnd';
+  roomId: string;
+}
+
 export default function MainRedirectPage() {
   const router = useRouter();
   const nickname = useSelector((state: RootState) => state.auth.user?.nickname);
@@ -23,7 +33,7 @@ export default function MainRedirectPage() {
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [mode, setMode] = useState<'friends' | 'dm' | 'add-friend' | 'shop'>('friends');
-  const [selectedFriend, setSelectedFriend] = useState<{ nickname: string; tag: string } | null>(null);
+  const [selectedFriend, setSelectedFriend] = useState<FriendWithRoom | null>(null);
   const registerSentRef = useRef(false);
 
   const socket = getSocket();
@@ -103,11 +113,33 @@ export default function MainRedirectPage() {
     };
   }, [email]);
 
-  const friendList = [
-    { nickname: '건모', tag: '1234' },
-    { nickname: '준모', tag: '4211' },
-    { nickname: '성모', tag: '7777' },
+  const friendList: FriendWithRoom[] = [
+    {
+      nickname: '건모',
+      tag: '1234',
+      email: 'gunmo@example.com',
+      profileImage: '',
+      color: '#8CC7A5',
+      roomId: 'dummy-room-id1', // 일단 더미로 넣고 DM 시작 시 교체됨
+    },
+    {
+      nickname: '준모',
+      tag: '4211',
+      email: 'junmo@example.com',
+      profileImage: '',
+      color: '#D29393',
+      roomId: 'dummy-room-id2',
+    },
+    {
+      nickname: '성모',
+      tag: '7777',
+      email: 'seongmo@example.com',
+      profileImage: '',
+      color: '#92A1D1',
+      roomId: 'dummy-room-id3',
+    },
   ];
+
 
   useEffect(() => {
     if (!nickname) router.replace('/');
@@ -257,7 +289,7 @@ export default function MainRedirectPage() {
         </div>
       </div>
 
-      <main className="flex min-h-screen bg-zinc-100 dark:bg-zinc-900 text-black dark:text-white">
+      <main className="flex h-screen">
         <aside className="hidden md:flex w-16 flex-col items-center pt-4 pb-[60px] bg-zinc-200 dark:bg-zinc-900 border-r border-zinc-300 dark:border-zinc-700">
           <button className="w-10 h-10 bg-zinc-300 dark:bg-zinc-700 rounded-full hover:bg-zinc-400 dark:hover:bg-zinc-600">+</button>
         </aside>
@@ -348,7 +380,7 @@ export default function MainRedirectPage() {
         </div>
       </div>
         <section className="flex-1 min-h-screen pt-20 md:pt-6 p-6 overflow-y-auto">
-          <RightPanel setFriendStatuses={setFriendStatuses} friendStatuses={friendStatuses} mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
+          <RightPanel setSelectedFriend={setSelectedFriend} setFriendStatuses={setFriendStatuses} friendStatuses={friendStatuses} mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
         </section>
       </main>
     </>

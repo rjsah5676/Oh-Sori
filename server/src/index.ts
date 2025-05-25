@@ -35,6 +35,12 @@ app.use("/api/auth", authRouter);
 import friendsRouter from './routes/friend';
 app.use('/api/friends', friendsRouter);
 
+import dmRouter from "./routes/dm";
+app.use('/api/dms', dmRouter);
+
+import userRouter from './routes/users';
+app.use('/api/users', userRouter);
+
 app.get("/api", (req, res) => {
   res.json({ message: "Hello from /api" });
 });

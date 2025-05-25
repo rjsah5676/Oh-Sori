@@ -77,11 +77,16 @@ export default function MainRedirectPage() {
       }
     };
 
-    const handleStatusUpdate = (data: { email: string; status: 'online' | 'offline' | 'away' | 'dnd'|null }) => {
+    const handleStatusUpdate = (data: { email: string; status: 'online' | 'offline' | 'away' | 'dnd' | null }) => {
       setFriendStatuses((prev) => ({
         ...prev,
         [data.email]: data.status,
       }));
+
+      // 👇 본인 상태도 같이 반영해주기
+      if (data.email === email) {
+        setUserStatus(data.status);
+      }
     };
 
 

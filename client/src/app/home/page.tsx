@@ -379,7 +379,7 @@ export default function MainRedirectPage() {
           </button>
         </div>
       </div>
-        <section className="flex-1 min-h-screen pt-20 md:pt-6 p-6 overflow-y-auto">
+        <section className={`flex-1 min-h-screen p-6 overflow-y-auto ${mode === 'dm' ? 'pt-0' : 'pt-20 md:pt-6'}`}>
           <RightPanel setSelectedFriend={setSelectedFriend} setFriendStatuses={setFriendStatuses} friendStatuses={friendStatuses} mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
         </section>
       </main>

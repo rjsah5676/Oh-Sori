@@ -1,8 +1,11 @@
 "use client";
 import { useLayoutEffect, useState } from "react";
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store/store';
 
 export default function ThemeToggle() {
   const [isDark, setIsDark] = useState<boolean | null>(null);
+  const user = useSelector((state: RootState) => state.auth.user);
 
   useLayoutEffect(() => {
     const saved = localStorage.getItem("theme");
@@ -23,7 +26,7 @@ export default function ThemeToggle() {
   };
 
   if (isDark === null) return null;
-
+  if (user) return null;
   return (
     <div className="fixed top-4 right-4 z-50">
       <button

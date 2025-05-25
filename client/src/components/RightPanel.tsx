@@ -323,9 +323,42 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
 
           {friendTab === 'online' && (
             <>
-              <div className="p-3 rounded-md bg-zinc-200 dark:bg-zinc-700">
-                건모#1234 <span className="text-sm text-green-600 dark:text-green-400">(온라인)</span>
-              </div>
+              {friendList
+                .filter((friend) => friendStatuses[friend.email] === 'online')
+                .map((friend) => (
+                  <div
+                    key={friend.email}
+                    className="p-2 rounded-md bg-zinc-200 dark:bg-zinc-700 flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <UserAvatar
+                        userStatus="online"
+                        profileImage={friend.profileImage}
+                        color={friend.color}
+                        size={44}
+                      />
+                      <div className="text-sm font-medium">
+                        {friend.nickname}#{friend.tag}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 items-center">
+                      <button className="p-1 hover:text-blue-500">
+                        <MessageCircle size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteFriend(friend.email)}
+                        className="p-1 hover:text-red-600"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              {friendList.filter((f) => friendStatuses[f.email] === 'online').length === 0 && (
+                <div className="p-3 rounded-md bg-zinc-100 dark:bg-zinc-700 text-sm text-zinc-600 dark:text-zinc-300">
+                  현재 온라인인 친구가 없습니다.
+                </div>
+              )}
             </>
           )}
           {friendTab === 'all' && (

@@ -83,7 +83,6 @@ export default function MainRedirectPage() {
         [data.email]: data.status,
       }));
 
-      // 👇 본인 상태도 같이 반영해주기
       if (data.email === email) {
         setUserStatus(data.status);
       }

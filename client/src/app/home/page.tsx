@@ -285,7 +285,7 @@ export default function MainRedirectPage() {
               <div className="flex items-center gap-2">
                 <UserAvatar
                   profileImage={friend.profileImage}
-                  userStatus={friend.userStatus}
+                  userStatus={friendStatuses[friend.email]}
                   color={friend.color}
                   size={36}
                   badgeOffsetX={-3}
@@ -410,7 +410,7 @@ export default function MainRedirectPage() {
               <div className="flex items-center gap-2">
                 <UserAvatar
                   profileImage={friend.profileImage}
-                  userStatus={friend.userStatus}
+                  userStatus={friendStatuses[friend.email]}
                   color={friend.color}
                   size={36}
                   badgeOffsetX={-3}

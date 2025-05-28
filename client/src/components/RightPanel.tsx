@@ -44,7 +44,7 @@ export default function RightPanel({ mode, setMode, setSelectedFriend, selectedF
 
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
-
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const dispatch = useDispatch();
   const friendStatuses = useSelector((state: RootState) => state.userStatus.statuses);
 

@@ -94,6 +94,16 @@ export default function MainRedirectPage() {
   };
 
   useEffect(() => {
+    if (selectedFriend?.email) {
+      setDmList((prevList) =>
+        prevList.map((f) =>
+          f.email === selectedFriend.email ? { ...f, unreadCount: 0 } : f
+        )
+      );
+    }
+  }, [selectedFriend]);
+
+  useEffect(() => {
     if (!registerSentRef.current && email) {
       fetchPendingCount();
       fetchDMList();
@@ -114,13 +124,9 @@ export default function MainRedirectPage() {
     };
 
     const handleReceiveMessage = (msg: any) => {
-        socket.emit('markAsRead', {
-          roomId: msg.roomId,
-          email,
-        });
-
-        socket.emit('refreshDmList');
+      socket.emit('refreshDmList');
     };
+
 
     const refreshDmList = async () => {
       fetchDMList();
@@ -144,6 +150,14 @@ export default function MainRedirectPage() {
     };
   }, [email]);
 
+  useEffect(() => {
+    setDmList((prevList) =>
+      prevList.map((friend) => ({
+        ...friend,
+        userStatus: friendStatuses[friend.email] || 'offline',
+      }))
+    );
+  }, [friendStatuses]);
 
   useEffect(() => {
     if (selectedFriend && email) {
@@ -151,6 +165,7 @@ export default function MainRedirectPage() {
         roomId: selectedFriend.roomId,
         email,
       });
+      socket.emit('refreshDmList');
     }
   }, [selectedFriend, email]);
 
@@ -255,7 +270,7 @@ export default function MainRedirectPage() {
               onClick={() => {
                 setSelectedFriend(friend);
                 setMode('dm');
-
+                
                 // unreadCount 바로 0으로 처리
                 setDmList((prevList) =>
                   prevList.map((f) =>
@@ -382,7 +397,6 @@ export default function MainRedirectPage() {
                 setSelectedFriend(friend);
                 setMode('dm');
 
-                // unreadCount 바로 0으로 처리
                 setDmList((prevList) =>
                   prevList.map((f) =>
                     f.email === friend.email ? { ...f, unreadCount: 0 } : f

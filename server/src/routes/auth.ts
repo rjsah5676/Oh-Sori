@@ -6,7 +6,7 @@ import User from '../models/User';
 import { generateUniqueTag } from '../utils/generateTag';
 import bcrypt from 'bcrypt';
 import dotenv from "dotenv";
-import { getUserStatus } from '../services/statusService';
+import { getUserStatus, setUserStatus} from '../services/statusService';
 
 dotenv.config();
 
@@ -69,8 +69,7 @@ router.get('/naver/callback', async (req, res) => {
     }
     const payload = { email: user.email, nickname: user.nickname };
     const jwtToken = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
-    console.log('cookie is:', cookie);
-    // 👉 여기서 HttpOnly 쿠키로 토큰 저장
+    await setUserStatus(user.email, 'online');
     res.setHeader('Set-Cookie', cookie.serialize('accessToken', jwtToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -127,7 +126,7 @@ router.get('/google/callback', async (req, res) => {
 
     const payload = { email: user.email, nickname: user.nickname };
     const jwtToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '7d' });
-
+    await setUserStatus(user.email, 'online');
     res.setHeader('Set-Cookie', cookie.serialize('accessToken', jwtToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -191,7 +190,7 @@ router.get('/kakao/callback', async (req, res) => {
 
     const payload = { email: user.email, nickname: user.nickname };
     const jwtToken = jwt.sign(payload, process.env.JWT_SECRET!, { expiresIn: '7d' });
-
+    await setUserStatus(user.email, 'online');
     res.setHeader('Set-Cookie', cookie.serialize('accessToken', jwtToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
@@ -208,7 +207,20 @@ router.get('/kakao/callback', async (req, res) => {
 });
 
 
-router.post('/logout', (req, res) => {
+router.post('/logout', async (req, res) => {
+  try {
+    const token = req.headers.cookie?.split(';').find((c) => c.trim().startsWith('accessToken='));
+    const accessToken = token?.split('=')[1];
+
+    if (accessToken) {
+      const decoded = jwt.verify(accessToken, process.env.JWT_SECRET!) as { email: string };
+      await setUserStatus(decoded.email, 'offline');
+    }
+  } catch (err) {
+    console.error('로그아웃 상태 변경 실패:', err);
+    // 그냥 넘어가도 됨
+  }
+
   res.setHeader('Set-Cookie', cookie.serialize('accessToken', '', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -216,6 +228,7 @@ router.post('/logout', (req, res) => {
     path: '/',
     expires: new Date(0),
   }));
+
   res.status(200).json({ message: 'Logged out' });
 });
 
@@ -320,6 +333,8 @@ const loginHandler = async (
 
     const payload = { email: user.email, nickname: user.nickname };
     const token = jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+
+    await setUserStatus(user.email, 'online');
 
     res.setHeader(
       'Set-Cookie',

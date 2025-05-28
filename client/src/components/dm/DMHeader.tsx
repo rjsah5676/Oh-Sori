@@ -18,6 +18,8 @@ export default function DMHeader({ nickname, tag, profileImage, color = '#ccc', 
           profileImage={profileImage}
           color={color}
           size={30}
+          badgeOffsetX={-4}
+          badgeOffsetY={-4}
         />
         <div className="truncate">
           <div className="text-sm font-medium text-black dark:text-white">

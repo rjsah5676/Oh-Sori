@@ -8,6 +8,8 @@ interface UserAvatarProps {
   size?: number;
   alt?: string;
   userStatus?: 'online' | 'offline' | 'away' | 'dnd' | null;
+  badgeOffsetX?: number;
+  badgeOffsetY?: number;
 }
 
 export default function UserAvatar({
@@ -16,6 +18,8 @@ export default function UserAvatar({
   size = 44,
   alt = 'profile',
   userStatus = 'offline',
+  badgeOffsetX = 1,
+  badgeOffsetY = 1,
 }: UserAvatarProps) {
   const badgeColor =
     userStatus === 'online'
@@ -33,7 +37,7 @@ export default function UserAvatar({
         backgroundColor: profileImage ? 'transparent' : color,
         width: size,
         height: size,
-        overflow: 'visible', // ✅ 뱃지가 잘리지 않게
+        overflow: 'visible',
       }}
     >
       <div className="rounded-full overflow-hidden w-full h-full">
@@ -50,8 +54,8 @@ export default function UserAvatar({
         <span
           className={`absolute w-3.5 h-3.5 rounded-full border-2 border-white ${badgeColor}`}
           style={{
-            bottom: -1,
-            right: -1,
+            right: badgeOffsetX,
+            bottom: badgeOffsetY,
           }}
         />
       )}

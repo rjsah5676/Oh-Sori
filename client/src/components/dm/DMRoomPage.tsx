@@ -57,6 +57,29 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
   }, []);
 
   useEffect(() => {
+    const socket = getSocket();
+    const handleReceiveMessage = (msg: Message) => {
+      if (!selectedFriend || !myEmail) return;
+
+      if (msg.roomId === selectedFriend.roomId) {
+        socket.emit('markAsRead', {
+          roomId: selectedFriend.roomId,
+          email: myEmail,
+        });
+      }
+
+      setMessages((prev) => [...prev, msg]);
+    };
+
+
+    socket.on('receiveMessage', handleReceiveMessage);
+
+    return () => {
+      socket.off('receiveMessage', handleReceiveMessage);
+    };
+  }, [selectedFriend, myEmail]);
+
+  useEffect(() => {
     const fetchMessages = async () => {
       if (!selectedFriend?.email || !selectedFriend?.roomId) return;
       try {
@@ -74,8 +97,6 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
             credentials: 'include',
             body: JSON.stringify({ roomId: selectedFriend.roomId }),
           });
-
-          socket.emit('refreshDmList');
         }
       } catch (err) {
         console.error('메시지 로딩 또는 읽음 처리 실패:', err);
@@ -84,17 +105,6 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
 
     fetchMessages();
   }, [selectedFriend]);
-
-  useEffect(() => {
-    const handleReceive = (msg: Message) => {
-      setMessages((prev) => [...prev, msg]);
-    };
-
-    socket.on('receiveMessage', handleReceive);
-    return () => {
-      socket.off('receiveMessage', handleReceive);
-    };
-  }, [socket]);
 
   useLayoutEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });

@@ -35,9 +35,7 @@ interface Message {
 export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
-  const [userStatus, setUserStatus] = useState<'online' | 'offline' | 'away' | 'dnd' | null>(
-    selectedFriend?.userStatus || null
-  );
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const socket = getSocket();
@@ -45,22 +43,42 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
   const myProfileImage = useSelector((state: RootState) => state.auth.user?.profileImage);
   const myName = useSelector((state: RootState) => state.auth.user?.nickname) || '';
 
+  const userStatus = useSelector(
+    (state: RootState) => selectedFriend?.email ? state.userStatus.statuses[selectedFriend.email] : 'offline'
+  );
+
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   useEffect(() => {
     const fetchMessages = async () => {
-      if (!selectedFriend?.email) return;
+      if (!selectedFriend?.email || !selectedFriend?.roomId) return;
       try {
         const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/dms/messages?target=${encodeURIComponent(
-            selectedFriend.email
-          )}`,
+          `${process.env.NEXT_PUBLIC_API_URL}/api/dms/messages?target=${encodeURIComponent(selectedFriend.email)}`,
           { credentials: 'include' }
         );
         const data = await res.json();
         if (res.ok) {
           setMessages(data.messages);
+
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dms/read`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify({ roomId: selectedFriend.roomId }),
+          });
+
+          socket.emit('refreshDmList');
         }
       } catch (err) {
-        console.error('메시지 로딩 실패:', err);
+        console.error('메시지 로딩 또는 읽음 처리 실패:', err);
       }
     };
 
@@ -97,7 +115,7 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -110,30 +128,6 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   };
-
-  useEffect(() => {
-    const fetchStatus = async () => {
-      if (!selectedFriend?.email || selectedFriend.userStatus) return;
-
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/friends/status-bulk`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ emails: [selectedFriend.email] }),
-        });
-
-        const data = await res.json();
-        if (res.ok && data.statuses?.[selectedFriend.email]) {
-          setUserStatus(data.statuses[selectedFriend.email]);
-        }
-      } catch (err) {
-        console.error('상태 불러오기 실패:', err);
-      }
-    };
-
-    fetchStatus();
-  }, [selectedFriend]);
 
   if (!selectedFriend) return null;
 
@@ -162,6 +156,8 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
                 userStatus={isMine ? 'online' : userStatus || 'offline'}
                 color={isMine ? undefined : selectedFriend.color}
                 size={36}
+                badgeOffsetX={-3}
+                badgeOffsetY={-3}
               />
               <div className={`flex flex-col max-w-md min-w-0 ${isMine ? 'items-end' : 'items-start'}`}>
                 <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -205,6 +201,14 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
           placeholder="메시지를 입력하세요"
           className="flex-1 resize-none overflow-hidden px-3 py-2 rounded-md bg-zinc-100 dark:bg-zinc-800 text-sm text-black dark:text-white border border-zinc-300 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
         />
+        {isMobile && (
+          <button
+            onClick={handleSend}
+            className="px-3 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 text-sm"
+          >
+            보내기
+          </button>
+        )}
       </div>
     </div>
   );

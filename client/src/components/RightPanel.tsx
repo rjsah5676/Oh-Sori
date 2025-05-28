@@ -5,6 +5,9 @@ import { Users, MessageCircle, X } from 'lucide-react';
 import { getSocket } from '@/lib/socket';
 import UserAvatar from '@/components/UserAvatar';
 import DMRoomPage from './dm/DMRoomPage';
+import { useDispatch, useSelector } from 'react-redux';
+import { setStatusesBulk } from '@/store/userStatusSlice';
+import { RootState } from '@/store/store';
 
 interface FriendWithRoom {
   nickname: string;
@@ -23,11 +26,9 @@ interface RightPanelProps {
   setSelectedFriend: React.Dispatch<React.SetStateAction<FriendWithRoom | null>>;
   pendingCount: number;
   setPendingCount: React.Dispatch<React.SetStateAction<number>>;
-  friendStatuses: Record<string, 'online' | 'offline' | 'away' | 'dnd' | null>;
-  setFriendStatuses: React.Dispatch<React.SetStateAction<Record<string, 'online' | 'offline' | 'away' | 'dnd' | null>>>;
 }
 
-export default function RightPanel({ setFriendStatuses, friendStatuses, mode, setMode, setSelectedFriend, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
+export default function RightPanel({ mode, setMode, setSelectedFriend, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
   const [friendTab, setFriendTab] = useState<'online' | 'all' | 'pending'>('online');
   const [friendSearch, setFriendSearch] = useState('');
   const [friendInput, setFriendInput] = useState('');
@@ -43,6 +44,9 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
 
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  const dispatch = useDispatch();
+  const friendStatuses = useSelector((state: RootState) => state.userStatus.statuses);
 
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -111,7 +115,7 @@ export default function RightPanel({ setFriendStatuses, friendStatuses, mode, se
 
           const data = await res.json();
           if (res.ok) {
-            setFriendStatuses(data.statuses);
+            dispatch(setStatusesBulk(data.statuses));
           }
         } catch (err) {
           console.error('친구 상태 불러오기 실패:', err);

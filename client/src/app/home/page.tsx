@@ -291,11 +291,11 @@ export default function MainRedirectPage() {
                   badgeOffsetX={-3}
                   badgeOffsetY={-3}
                 />
-                <div className="flex flex-col">
+                <div className="flex flex-col w-[calc(100%-48px)]">
                   <span className="text-sm font-semibold text-black dark:text-white">
                     {friend.nickname}
                   </span>
-                  <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate w-full block">
                     {friend.lastMessage?.content || `#${friend.tag}`}
                   </span>
                 </div>
@@ -416,11 +416,11 @@ export default function MainRedirectPage() {
                   badgeOffsetX={-3}
                   badgeOffsetY={-3}
                 />
-                <div className="flex flex-col">
+                <div className="flex flex-col w-[calc(100%-48px)]">
                   <span className="text-sm font-semibold text-black dark:text-white">
                     {friend.nickname}
                   </span>
-                  <span className="text-xs text-zinc-600 dark:text-zinc-400">
+                  <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate w-full block">
                     {friend.lastMessage?.content || `#${friend.tag}`}
                   </span>
                 </div>

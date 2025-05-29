@@ -45,6 +45,8 @@ export default function MainRedirectPage() {
 
   const [dmList, setDmList] = useState<FriendWithRoom[]>([]);
 
+  const notificationAudio = useRef<HTMLAudioElement | null>(null);
+
   const userStatus = useSelector((state: RootState) => {
     if (!email) return 'offline';
     return state.userStatus.statuses[email] || 'offline';
@@ -107,6 +109,14 @@ export default function MainRedirectPage() {
     if (!registerSentRef.current && email) {
       fetchPendingCount();
       fetchDMList();
+      
+      const silence = new Audio('/sounds/silence.wav');
+      silence.volume = 0;
+      silence.play().catch(() => {});
+
+      notificationAudio.current = new Audio('/sounds/notification.wav');
+      notificationAudio.current.load();
+      notificationAudio.current.volume = 0.5;
     }
     if (email && socket.connected && !registerSentRef.current) {
       socket.emit('register', email);
@@ -124,6 +134,11 @@ export default function MainRedirectPage() {
     };
 
     const handleReceiveMessage = (msg: any) => {
+      if (msg.sender !== email) {
+      notificationAudio.current?.play().catch((e) => {
+        console.warn('🔈 알림 사운드 재생 실패:', e);
+      });
+    }
       socket.emit('refreshDmList');
     };
 

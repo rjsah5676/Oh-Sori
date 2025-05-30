@@ -1,8 +1,10 @@
 'use client';
 
+import useRedirectIfLoggedIn from '@/hooks/useRedirectIfLoggedIn';
 import { useState } from 'react';
 
 export default function BasicLoginPage() {
+  useRedirectIfLoggedIn();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
   const [email, setEmail] = useState('');

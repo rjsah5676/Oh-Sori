@@ -454,9 +454,7 @@ export default function RightPanel({ mode, setMode, setSelectedFriend, selectedF
   }
 
   if (mode === 'dm') {
-    return (
-      <DMRoomPage selectedFriend={selectedFriend}/>
-    );
+    return (<>{selectedFriend && <DMRoomPage key={selectedFriend.email} selectedFriend={selectedFriend} />}</>);
   }
 
   if (mode === 'shop') {

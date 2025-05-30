@@ -5,8 +5,10 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useDispatch } from 'react-redux';
 import { setUser } from '@/store/authSlice';
 import { Suspense } from 'react';
+import useRedirectIfLoggedIn from '@/hooks/useRedirectIfLoggedIn';
 
 function OAuthSuccessContent() {
+  useRedirectIfLoggedIn();
   const router = useRouter();
   const searchParams = useSearchParams();
   const dispatch = useDispatch();
@@ -24,12 +26,24 @@ function OAuthSuccessContent() {
     }
   }, [nickname, profileImage, dispatch, tag, email, color, router]);
 
-  return <div className="text-center mt-32 text-lg">로그인 처리 중입니다...</div>;
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen text-center bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">
+      <div className="w-12 h-12 border-4 border-indigo-500 border-dashed rounded-full animate-spin mb-4" />
+      <div className="text-lg font-semibold">로그인 처리 중입니다...</div>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">잠시만 기다려 주세요</p>
+    </div>
+  );
 }
 
 export default function OAuthSuccessPage() {
   return (
-    <Suspense fallback={<div className="text-center mt-32 text-lg">로그인 처리 중입니다...</div>}>
+    <Suspense fallback={
+      <div className="flex flex-col items-center justify-center min-h-screen text-center bg-white dark:bg-zinc-900 text-zinc-800 dark:text-zinc-200">
+        <div className="w-12 h-12 border-4 border-indigo-500 border-dashed rounded-full animate-spin mb-4" />
+        <div className="text-lg font-semibold">로그인 처리 중입니다...</div>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1">잠시만 기다려 주세요</p>
+      </div>
+    }>
       <OAuthSuccessContent />
     </Suspense>
   );

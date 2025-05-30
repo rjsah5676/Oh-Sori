@@ -2,8 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import useRedirectIfLoggedIn from '@/hooks/useRedirectIfLoggedIn';
 
 export default function RegisterPage() {
+  useRedirectIfLoggedIn();
   const router = useRouter();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
 

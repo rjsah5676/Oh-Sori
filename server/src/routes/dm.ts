@@ -2,7 +2,6 @@ import express, { Request, Response } from 'express';
 import DMRoom from '../models/DMRoom';
 import DMMessage from '../models/DMMessage';
 import { getUserFromToken } from '../utils/auth';
-import { authenticate } from '../middleware/auth';
 import User from '../models/User';
 
 const router = express.Router();
@@ -40,13 +39,13 @@ const checkOrCreateDMRoomHandler = async (
 
 
 const getMessagesHandler = async (
-  req: Request<{}, {}, {}, { target: string }>,
+  req: Request<{}, {}, {}, { target: string; skip?: string; limit?: string }>,
   res: Response
 ) => {
   const authUser = getUserFromToken(req);
   if (!authUser) return res.status(401).json({ message: '인증 실패' });
 
-  const { target } = req.query;
+  const { target, skip = '0', limit = '20' } = req.query;
   if (!target || typeof target !== 'string') {
     return res.status(400).json({ message: '대상 누락' });
   }
@@ -62,8 +61,12 @@ const getMessagesHandler = async (
       roomId: room._id,
       deletedBy: { $ne: authUser.email },
     })
-      .sort({ createdAt: 1 })
+      .sort({ createdAt: -1 })
+      .skip(parseInt(skip))
+      .limit(parseInt(limit))
       .lean();
+
+    messages.reverse(); // 오래된 순 정렬로 전환
 
     return res.status(200).json({ messages });
   } catch (err) {
@@ -71,6 +74,7 @@ const getMessagesHandler = async (
     return res.status(500).json({ message: '서버 오류' });
   }
 };
+
 
 interface LeanUser {
   email: string;

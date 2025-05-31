@@ -306,7 +306,7 @@ export default function MainRedirectPage() {
                   badgeOffsetX={-3}
                   badgeOffsetY={-3}
                 />
-                <div className="flex flex-col w-[calc(100%-48px)]">
+                <div className="flex flex-col w-[calc(100%-72px)]">
                   <span className="text-sm font-semibold text-black dark:text-white">
                     {friend.nickname}
                   </span>
@@ -431,7 +431,7 @@ export default function MainRedirectPage() {
                   badgeOffsetX={-3}
                   badgeOffsetY={-3}
                 />
-                <div className="flex flex-col w-[calc(100%-48px)]">
+                <div className="flex flex-col w-[calc(100%-72px)]">
                   <span className="text-sm font-semibold text-black dark:text-white">
                     {friend.nickname}
                   </span>

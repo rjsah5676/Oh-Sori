@@ -3,8 +3,10 @@
 import { FcGoogle } from 'react-icons/fc';
 import { SiKakaotalk, SiNaver } from 'react-icons/si';
 import { useRouter } from 'next/navigation';
+import useRedirectIfLoggedIn from '@/hooks/useRedirectIfLoggedIn';
 
 export default function LoginPage() {
+  useRedirectIfLoggedIn();
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
   const router = useRouter();
 

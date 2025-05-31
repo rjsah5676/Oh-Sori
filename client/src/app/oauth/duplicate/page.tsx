@@ -1,9 +1,11 @@
 'use client';
 
+import useRedirectIfLoggedIn from '@/hooks/useRedirectIfLoggedIn';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
 
 function DuplicateContent() {
+  useRedirectIfLoggedIn();
   const searchParams = useSearchParams();
   const router = useRouter();
   const email = searchParams.get('email');

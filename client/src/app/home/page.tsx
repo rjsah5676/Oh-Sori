@@ -311,11 +311,14 @@ export default function MainRedirectPage() {
                     {friend.nickname}
                   </span>
                   <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate w-full block">
-                    {friend.lastMessage?.content || `#${friend.tag}`}
+                    {friend.lastMessage?.content === undefined ? `#${friend.tag}`:
+                    <>
+                      {friend.lastMessage?.content === '' ? `사진/파일`:`${friend.lastMessage?.content}`}
+                    </>}
                   </span>
                 </div>
                 {(friend.unreadCount ?? 0) > 0 && (
-                  <span className="ml-auto px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full">
+                  <span style={{ textIndent: '-1px' }} className="ml-auto px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full">
                     {friend.unreadCount}
                   </span>
                 )}
@@ -436,11 +439,14 @@ export default function MainRedirectPage() {
                     {friend.nickname}
                   </span>
                   <span className="text-xs text-zinc-600 dark:text-zinc-400 truncate w-full block">
-                    {friend.lastMessage?.content || `#${friend.tag}`}
+                    {friend.lastMessage?.content === undefined ? `#${friend.tag}`:
+                    <>
+                      {friend.lastMessage?.content === '' ? `사진/파일`:`${friend.lastMessage?.content}`}
+                    </>}
                   </span>
                 </div>
                 {(friend.unreadCount ?? 0) > 0 && (
-                  <span className="ml-auto px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full">
+                  <span style={{ textIndent: '-1px' }} className="ml-auto px-2 py-0.5 text-xs font-bold text-white bg-red-600 rounded-full">
                     {friend.unreadCount}
                   </span>
                 )}

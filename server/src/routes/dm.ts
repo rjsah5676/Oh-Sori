@@ -3,8 +3,30 @@ import DMRoom from '../models/DMRoom';
 import DMMessage from '../models/DMMessage';
 import { getUserFromToken } from '../utils/auth';
 import User from '../models/User';
+import multer from 'multer';
+import path from 'path';
+import fs from 'fs';
 
 const router = express.Router();
+
+const uploadPath = path.join(__dirname, '../../uploads/dms');
+if (!fs.existsSync(uploadPath)) {
+  fs.mkdirSync(uploadPath, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadPath);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, file.fieldname + '-' + uniqueSuffix + ext);
+  },
+});
+
+const upload = multer({ storage });
+
 
 const checkOrCreateDMRoomHandler = async (
   req: Request<{}, {}, {}, { target: string }>,
@@ -172,7 +194,29 @@ const dmReadHandler = async (req: Request, res: Response) =>  {
   }
 };
 
+const uploadDMFileHandler = async (req: Request, res: Response) => {
+  const authUser = getUserFromToken(req);
+  if (!authUser) return res.status(401).json({ message: '인증 실패' });
 
+  const roomId = req.body.roomId;
+  if (!roomId) return res.status(400).json({ message: 'roomId 누락' });
+
+  try {
+    const attachments = (req.files as Express.Multer.File[]).map((file) => ({
+      type: file.mimetype.startsWith('image/') ? 'image' : 'file',
+      url: `/uploads/dms/${file.filename}`,
+      filename: Buffer.from(file.originalname, 'latin1').toString('utf8'), // ✅ 복원
+      size: file.size,
+    }));
+
+    return res.status(200).json({ attachments });
+  } catch (err) {
+    console.error('파일 업로드 실패:', err);
+    return res.status(500).json({ message: '파일 업로드 실패' });
+  }
+};
+
+router.post('/upload', upload.array('files'), uploadDMFileHandler as any);
 router.post('/read', dmReadHandler as any);
 router.get('/list', getDMListHandler as any);
 router.get('/check-or-create', checkOrCreateDMRoomHandler as unknown as express.RequestHandler);

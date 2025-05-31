@@ -350,7 +350,7 @@ export default function RightPanel({ mode, setMode, setSelectedFriend, selectedF
           </svg>
         </div>
 
-        <div className="space-y-2 text-base">
+        <div className="space-y-2 text-base overflow-y-auto max-h-[60vh] pr-1">
             {friendTab === 'pending' && (
             <>
             {pendingList.length === 0 ? (

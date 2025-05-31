@@ -5,6 +5,7 @@ import dotenv from "dotenv";
 import mongoose from "mongoose";
 import { initSocket } from './socket';
 import http from 'http';
+import path from 'path';
 
 dotenv.config();
 
@@ -27,6 +28,9 @@ app.use(
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads/dms', express.static(path.join(__dirname, '../uploads/dms')));
 
 // 라우트 등록
 import authRouter from "./routes/auth";

@@ -26,9 +26,10 @@ interface RightPanelProps {
   setSelectedFriend: React.Dispatch<React.SetStateAction<FriendWithRoom | null>>;
   pendingCount: number;
   setPendingCount: React.Dispatch<React.SetStateAction<number>>;
+  handleStartDM: (targetEmail: string) => void;
 }
 
-export default function RightPanel({ mode, setMode, setSelectedFriend, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
+export default function RightPanel({ handleStartDM, mode, setMode, setSelectedFriend, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
   const [friendTab, setFriendTab] = useState<'online' | 'all' | 'pending'>('online');
   const [friendSearch, setFriendSearch] = useState('');
   const [friendInput, setFriendInput] = useState('');
@@ -215,30 +216,6 @@ export default function RightPanel({ mode, setMode, setSelectedFriend, selectedF
       alert(err.message || '에러 발생');
     }
   };
-
-  const handleStartDM = async (targetEmail: string) => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dms/check-or-create?target=${encodeURIComponent(targetEmail)}`, {
-        credentials: 'include',
-      });
-      const data = await res.json();
-
-      if (res.ok && data.roomId) {
-        const target = friendList.find(f => f.email === targetEmail);
-        if (target) {
-          setSelectedFriend({ ...target, roomId: data.roomId }); // ✅ 여기 roomId 추가
-        }
-        setMode('dm');
-        getSocket().emit('joinRoom', data.roomId); // ✅ 여기서도 제대로 된 roomId로 join
-      } else {
-        alert('DM 방 생성 실패');
-      }
-    } catch (err) {
-      console.error('DM 생성 오류:', err);
-      alert('DM 생성 중 오류 발생');
-    }
-  };
-
 
   useEffect(() => {
     const socket = getSocket();

@@ -4,6 +4,8 @@ import ThemeToggle from "@/components/ThemeToggle";
 import ThemeScript from "@/components/ThemeScript"; 
 import ReduxProvider from '@/store/provider';
 import InitAuthLoader from '@/store/InitAuthLoader';
+import CallSocketHandler from '@/components/dm/call/CallSocketHandler';
+import CallIncomingToast from "@/components/dm/call/CallIncomingToast";
 
 export const metadata: Metadata = {
   title: "Oh! Sori",
@@ -28,6 +30,8 @@ export default function RootLayout({
         <ReduxProvider>
           <InitAuthLoader>
             <ThemeToggle />
+            <CallSocketHandler />
+            <CallIncomingToast />
             {children}
           </InitAuthLoader>
         </ReduxProvider>

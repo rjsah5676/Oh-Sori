@@ -204,6 +204,29 @@ export default function MainRedirectPage() {
 
   if (!nickname) return null;
 
+  const handleStartDM = async (targetEmail: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dms/check-or-create?target=${encodeURIComponent(targetEmail)}`, {
+        credentials: 'include',
+      });
+      const data = await res.json();
+
+      if (res.ok && data.roomId) {
+        const target = dmList.find(f => f.email === targetEmail);
+        if (target) {
+          setSelectedFriend({ ...target, roomId: data.roomId }); // ✅ 여기 roomId 추가
+        }
+        setMode('dm');
+        getSocket().emit('joinRoom', data.roomId); // ✅ 여기서도 제대로 된 roomId로 join
+      } else {
+        alert('DM 방 생성 실패');
+      }
+    } catch (err) {
+      console.error('DM 생성 오류:', err);
+      alert('DM 생성 중 오류 발생');
+    }
+  };
+
   return (
     <>
       {!isSidebarOpen && (
@@ -283,16 +306,7 @@ export default function MainRedirectPage() {
             <button
               key={friend.email}
               onClick={() => {
-                setSelectedFriend(friend);
-                setMode('dm');
-                
-                // unreadCount 바로 0으로 처리
-                setDmList((prevList) =>
-                  prevList.map((f) =>
-                    f.email === friend.email ? { ...f, unreadCount: 0 } : f
-                  )
-                );
-              }}
+                handleStartDM(friend.email)}}
               className={`relative hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded-md text-left ${
                 selectedFriend?.email === friend.email ? 'bg-zinc-300 dark:bg-zinc-700 font-semibold' : ''
               }`}
@@ -411,16 +425,7 @@ export default function MainRedirectPage() {
            {dmList.map((friend) => (
             <button
               key={friend.email}
-              onClick={() => {
-                setSelectedFriend(friend);
-                setMode('dm');
-
-                setDmList((prevList) =>
-                  prevList.map((f) =>
-                    f.email === friend.email ? { ...f, unreadCount: 0 } : f
-                  )
-                );
-              }}
+              onClick={() => { handleStartDM(friend.email) }}
               className={`relative hover:bg-zinc-200 dark:hover:bg-zinc-700 px-3 py-2 rounded-md text-left ${
                 selectedFriend?.email === friend.email ? 'bg-zinc-300 dark:bg-zinc-700 font-semibold' : ''
               }`}
@@ -486,7 +491,7 @@ export default function MainRedirectPage() {
         </div>
       </div>
         <section className={`flex-1 min-h-screen p-6 overflow-y-auto ${mode === 'dm' ? 'pt-0' : 'pt-20 md:pt-6'}`}>
-          <RightPanel setSelectedFriend={setSelectedFriend} mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
+          <RightPanel handleStartDM={handleStartDM} setSelectedFriend={setSelectedFriend} mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
         </section>
       </main>
     </>

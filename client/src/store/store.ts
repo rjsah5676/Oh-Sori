@@ -1,11 +1,13 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './authSlice';
 import userStatusReducer from './userStatusSlice';
+import callReducer from './callSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     userStatus: userStatusReducer,
+    call: callReducer,
   },
 });
 

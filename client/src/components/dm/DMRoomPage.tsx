@@ -3,11 +3,13 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import DMHeader from './DMHeader';
 import { getSocket } from '@/lib/socket';
-import { useSelector } from 'react-redux';
+import { useSelector,useDispatch } from 'react-redux';
 import { RootState } from '@/store/store';
 import UserAvatar from '@/components/UserAvatar';
 import dayjs from 'dayjs';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Phone, Monitor, PhoneOff, } from 'lucide-react';
+import { startCall } from '@/store/callSlice';
+import { endCall, clearIncomingCall, finalizeCall } from '@/store/callSlice';
 
 interface FriendWithRoom {
   nickname: string;
@@ -35,6 +37,8 @@ interface Message {
 }
 
 export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
+  const dispatch = useDispatch();
+
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isMobile, setIsMobile] = useState(false);
@@ -53,9 +57,13 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
   const myEmail = useSelector((state: RootState) => state.auth.user?.email) || '';
   const myProfileImage = useSelector((state: RootState) => state.auth.user?.profileImage);
   const myName = useSelector((state: RootState) => state.auth.user?.nickname) || '';
+  const myTag = useSelector((state: RootState) => state.auth.user?.tag) || '';
+  const myColor = useSelector((state: RootState) => state.auth.user?.color) || '';
   const userStatus = useSelector(
     (state: RootState) => selectedFriend?.email ? state.userStatus.statuses[selectedFriend.email] : 'offline'
   );
+
+  const call = useSelector((state: RootState) => state.call); //통화 상태
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -68,6 +76,7 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
     const socket = getSocket();
     const handleReceiveMessage = (msg: Message) => {
       if (!selectedFriend || !myEmail) return;
+
       if (msg.roomId === selectedFriend.roomId) {
         socket.emit('markAsRead', { roomId: selectedFriend.roomId, email: myEmail });
       }
@@ -75,9 +84,18 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
         if (prev.find((m) => m._id === msg._id)) return prev;
         return [...prev, msg];
       });
-      requestAnimationFrame(() => {
-        scrollRef.current?.scrollIntoView({ behavior: 'auto' });
-      });
+      setTimeout(() => {
+        requestAnimationFrame(() => {
+          const el = containerRef.current;
+          if (!el) return;
+          const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200;
+
+          if (nearBottom || msg.sender === myEmail) {
+            el.scrollTop = el.scrollHeight;
+          }
+        });
+      }, 0);
+
     };
 
     socket.on('receiveMessage', handleReceiveMessage);
@@ -132,10 +150,11 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
   }, [selectedFriend]);
 
   useLayoutEffect(() => {
-    if (!initialScrollDone && messages.length > 0 && scrollRef.current) {
-      scrollRef.current?.scrollIntoView({ behavior: 'auto'});
-      setInitialScrollDone(true);
-    }
+    if (!initialScrollDone && messages.length > 0) {
+  const el = containerRef.current;
+  if (el) el.scrollTop = el.scrollHeight;
+  setInitialScrollDone(true);
+}
   }, [messages, initialScrollDone]);
 
   const handleScroll = () => {
@@ -363,8 +382,12 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
                             src={fileUrl}
                             alt={file.filename}
                             onClick={() => setModalImageUrl(fileUrl)}
-                            onLoad={() => {
-                              if (isLast) scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+                           onLoad={() => {
+                              if (!isLast) return;
+                              const el = containerRef.current;
+                              if (!el) return;
+
+                              el.scrollTop = el.scrollHeight;
                             }}
                             className="cursor-pointer max-w-[180px] md:max-w-[320px] rounded-lg border border-zinc-300 dark:border-zinc-700"
                           />
@@ -405,11 +428,121 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
     });
   };
 
+  const handleStartCall = () => { //통화 걸기
+    if (!selectedFriend) return;
+
+    socket.emit('call:request', {
+      to: selectedFriend.email,
+      roomId: selectedFriend.roomId,
+      from: myEmail,
+      nickname: myName,
+      tag: myTag,
+      profileImage: myProfileImage,
+      color: myColor,
+    });
+    dispatch(startCall({ isCaller: true, roomId: selectedFriend.roomId }));
+  };
+
+  const handleEndCall = () => { //통화 끊기
+    if (!selectedFriend?.roomId) return;
+
+    socket.emit('call:end', {
+      roomId: selectedFriend.roomId,
+      to:selectedFriend.email
+    });
+    dispatch(endCall());
+  };
+
+  const handleJoinCall = () => {
+    const roomId = selectedFriend?.roomId;
+    if(!roomId || !myEmail) return;
+    socket.emit('call:reconn', {
+      roomId,
+      from:myEmail
+    })
+    dispatch(clearIncomingCall());
+  }
+
+  useEffect(() => {
+    if (call.callerEnded && call.calleeEnded) {
+      dispatch(finalizeCall());
+    }
+  }, [call.callerEnded, call.calleeEnded, dispatch]);
+
   return (
     <div className="h-[90vh] md:h-[96vh] flex flex-col bg-white dark:bg-zinc-900">
       <div className="shrink-0">
-        <DMHeader {...selectedFriend} userStatus={userStatus || 'offline'} />
+        <DMHeader onStartCall={handleStartCall} {...selectedFriend} userStatus={userStatus || 'offline'} />
       </div>
+
+      {selectedFriend?.roomId === call.roomId && (!call.callerEnded || !call.calleeEnded) && (
+        <div className="relative bg-black text-white py-6 px-4 flex flex-col items-center justify-center shadow-md">
+          <div className="flex items-center justify-center gap-10 mb-4">
+            {/* 본인 아바타 */}
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className={`rounded-full ${
+                  (call.isCaller && call.callerEnded) || (!call.isCaller && call.calleeEnded)
+                    ? 'grayscale blur-[2px] opacity-60'
+                    : ''
+                }`}
+              >
+                <UserAvatar profileImage={myProfileImage} userStatus={null} size={64} />
+              </div>
+              <div className="text-xs">{myName}</div>
+            </div>
+
+            {/* 상대방 아바타 */}
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className={`rounded-full ${
+                  (call.isCaller && call.calleeEnded) || (!call.isCaller && call.callerEnded)
+                    ? 'grayscale blur-[2px] opacity-60'
+                    : ''
+                }`}
+              >
+                <UserAvatar
+                  profileImage={selectedFriend.profileImage}
+                  userStatus={null}
+                  size={64}
+                  color={selectedFriend.color}
+                />
+              </div>
+              <div className="text-xs">{selectedFriend.nickname}</div>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 mt-4">
+            {/* 본인이 아직 통화 참여 안한 상태면 참여 버튼 보여주기 */}
+            {((call.isCaller && call.callerEnded) || (!call.isCaller && call.calleeEnded)) ? (
+              <button
+                onClick={handleJoinCall}
+                className="w-12 h-12 flex items-center justify-center rounded-full bg-green-600 hover:bg-green-700 transition"
+              >
+                <Phone className="w-5 h-5 text-white" />
+              </button>
+            ) : (
+              <>
+                {/* 화면 공유 버튼 */}
+                <button
+                  onClick={() => alert('화면 공유 기능은 아직 구현되지 않았습니다.')}
+                  className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition"
+                >
+                  <Monitor className="w-5 h-5 text-white" />
+                </button>
+
+                {/* 통화 종료 버튼 */}
+                <button
+                  onClick={handleEndCall}
+                  className="w-12 h-12 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 transition"
+                >
+                  <PhoneOff className="w-5 h-5 text-white" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
         {renderMessagesWithDateDividers()}

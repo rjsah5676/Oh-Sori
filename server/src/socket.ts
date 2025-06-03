@@ -6,7 +6,7 @@ import DMMessage from './models/DMMessage';
 import DMRoom from './models/DMRoom';
 import mongoose from 'mongoose';
 
-import { startCallSession, endCallForUser, getCallSession, acceptCall, reconnCall } from './services/callService';
+import { startCallSession, endCallForUser, getCallSession, acceptCall, reconnCall, getCallRoomKey } from './services/callService';
 
 import redis from './utils/redis';
 
@@ -18,6 +18,74 @@ let ioInstance: Server | null = null;
 export const userSocketMap = new Map<string, string>();
 // 소켓 ID → 이메일 (역매핑)
 const socketToEmail = new Map<string, string>();
+const roomTimeouts = new Map<string, NodeJS.Timeout>();
+
+function start3MinTimeout(roomId: string, caller: string, callee: string) {
+  if (roomTimeouts.has(roomId)) return; // 중복 방지
+
+  const timeout = setTimeout(async () => {
+    const session = await getCallSession(roomId);
+    if (!session) return;
+
+    const callerEnded = session.callerEnded === 'true';
+    const calleeEnded = session.calleeEnded === 'true';
+    if (callerEnded && calleeEnded) return; // 이미 둘 다 종료 상태면 skip
+
+    console.log(`⏰ 3분 경과 - ${roomId} 방 제거`);
+    await redis.del(getCallRoomKey(roomId));
+    roomTimeouts.delete(roomId);
+
+    const callerSocket = userSocketMap.get(caller);
+    const calleeSocket = userSocketMap.get(callee);
+
+    if (callerSocket) ioInstance?.to(callerSocket).emit('call:clear');
+    if (calleeSocket) ioInstance?.to(calleeSocket).emit('call:clear');
+  }, 180_000);
+
+  roomTimeouts.set(roomId, timeout);
+}
+
+function clearTimeoutForRoom(roomId: string) {
+  const timeout = roomTimeouts.get(roomId);
+  if (timeout) {
+    clearTimeout(timeout);
+    roomTimeouts.delete(roomId);
+  }
+}
+
+const handleCallCleanup = async (email: string) => {
+  const keys = await redis.keys('call_room:*');
+
+  for (const key of keys) {
+    const session = await redis.hgetall(key);
+    if (!session) continue;
+
+    const { caller, callee, callerEnded, calleeEnded } = session;
+    const roomId = key.replace('call_room:', '');
+
+    if (caller === email || callee === email) {
+      await endCallForUser(roomId, email);
+
+      const peerEmail = caller === email ? callee : caller;
+      const peerSocketId = userSocketMap.get(peerEmail);
+
+      if (peerSocketId) {
+        ioInstance?.to(peerSocketId).emit('call:end');
+        console.log(`📴 통화 종료 알림 (본인만 종료): ${email} → ${peerEmail}`);
+      }
+
+      // 🔥 타이머 돌리기 (이미 종료 안 됐을 때만)
+      const oneEnded = callerEnded === 'true' || calleeEnded === 'true';
+      const bothEnded = callerEnded === 'true' && calleeEnded === 'true';
+
+      if (!bothEnded && oneEnded) {
+        start3MinTimeout(roomId, caller, callee);
+      }
+
+      break;
+    }
+  }
+};
 
 export const initSocket = (server: any) => {
   const io = new Server(server, {
@@ -138,7 +206,7 @@ export const initSocket = (server: any) => {
 
     // 🔹 Redis에 통화 상태 저장
     await startCallSession(roomId, from, to, false, true);
-
+    start3MinTimeout(roomId, from, to);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit('call:incoming', {
         from,
@@ -156,6 +224,7 @@ export const initSocket = (server: any) => {
 
     socket.on('call:accept', ({ to, roomId }) => {
       const callerSocketId = userSocketMap.get(to);
+      clearTimeoutForRoom(roomId);
       if (callerSocketId) {
         io.to(callerSocketId).emit('call:peer-connected');
       }
@@ -168,7 +237,19 @@ export const initSocket = (server: any) => {
       const from = socketToEmail.get(socket.id);
       if (!from) return;
 
-      await endCallForUser(roomId, from); // 🔹 Redis에서 본인 종료 처리
+      await endCallForUser(roomId, from);
+
+      const session = await getCallSession(roomId);
+      console.log(session);
+      if (session) {
+        const { caller, callee, callerEnded, calleeEnded } = session;
+
+        if (callerEnded === 'true' && calleeEnded === 'true') {
+          clearTimeoutForRoom(roomId); // 완전 종료
+        } else if (callerEnded === 'true' || calleeEnded === 'true') {
+          start3MinTimeout(roomId, caller, callee); // 3분 타이머 시작
+        }
+      }
 
       const receiverSocketId = userSocketMap.get(to);
       if (receiverSocketId) {
@@ -205,7 +286,7 @@ export const initSocket = (server: any) => {
       const session = await reconnCall(roomId, isCaller);
 
       if(!session) return;
-
+      clearTimeoutForRoom(roomId);
       socket.emit('call:reconn-success', {
         roomId,
         isCaller,
@@ -228,10 +309,27 @@ export const initSocket = (server: any) => {
       }
     });
 
+
+    socket.on('call:clear', async ({ roomId, to }) => {
+      const from = socketToEmail.get(socket.id);
+      if (!from) return;
+
+      await redis.del(`call_room:${roomId}`);
+      console.log(`🧹 call_room 삭제됨: ${roomId} by ${from}`);
+
+      const receiverSocketId = userSocketMap.get(to);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit('call:clear');
+        console.log(`📴 통화 거절 알림 전송: ${from} → ${to}`);
+      }
+    });
+
     socket.on('logout', async (email: string) => {
       const existingSocketId = userSocketMap.get(email);
 
       if (existingSocketId === socket.id) {
+        await handleCallCleanup(email); //통화 종료
+
         userSocketMap.delete(email);
         socketToEmail.delete(socket.id);
 
@@ -248,7 +346,10 @@ export const initSocket = (server: any) => {
       console.log('🔴 소켓 해제됨:', socket.id);
 
       const email = socketToEmail.get(socket.id);
+      
       if (email) {
+        await handleCallCleanup(email); //통화 종료
+
         userSocketMap.delete(email);
         socketToEmail.delete(socket.id);
 

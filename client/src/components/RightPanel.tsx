@@ -8,6 +8,7 @@ import DMRoomPage from './dm/DMRoomPage';
 import { useDispatch, useSelector } from 'react-redux';
 import { setStatusesBulk } from '@/store/userStatusSlice';
 import { RootState } from '@/store/store';
+import { setMode } from '@/store/uiSlice';
 
 interface FriendWithRoom {
   nickname: string;
@@ -20,20 +21,19 @@ interface FriendWithRoom {
 }
 
 interface RightPanelProps {
-  mode: 'friends' | 'dm' | 'add-friend' | 'shop';
-  setMode: (mode: 'friends' | 'dm' | 'add-friend') => void;
-  selectedFriend: FriendWithRoom | null;
-  setSelectedFriend: React.Dispatch<React.SetStateAction<FriendWithRoom | null>>;
   pendingCount: number;
   setPendingCount: React.Dispatch<React.SetStateAction<number>>;
   handleStartDM: (targetEmail: string) => void;
 }
 
-export default function RightPanel({ handleStartDM, mode, setMode, setSelectedFriend, selectedFriend,setPendingCount, pendingCount }: RightPanelProps) {
+export default function RightPanel({ handleStartDM, setPendingCount, pendingCount }: RightPanelProps) {
   const [friendTab, setFriendTab] = useState<'online' | 'all' | 'pending'>('online');
   const [friendSearch, setFriendSearch] = useState('');
   const [friendInput, setFriendInput] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+
+  const selectedFriend = useSelector((state: RootState) => state.ui.selectedFriend);
+  const mode = useSelector((state: RootState) => state.ui.mode);
 
   const [pendingList, setPendingList] = useState<
     { nickname: string; tag: string; email: string; profileImage?: string, color:string }[]
@@ -45,7 +45,6 @@ export default function RightPanel({ handleStartDM, mode, setMode, setSelectedFr
 
 
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const dispatch = useDispatch();
   const friendStatuses = useSelector((state: RootState) => state.userStatus.statuses);
 
@@ -149,7 +148,7 @@ export default function RightPanel({ handleStartDM, mode, setMode, setSelectedFr
       setFriendInput('');
       setErrorMessage('');
       alert('친구 요청이 전송되었습니다.');
-      setMode('friends'); // 성공 후 친구 목록으로
+      dispatch(setMode('friends')); // 성공 후 친구 목록으로
     } catch (err: any) {
       setErrorMessage(err.message);
     }
@@ -288,7 +287,7 @@ export default function RightPanel({ handleStartDM, mode, setMode, setSelectedFr
             </button>
           )}
           <button
-            onClick={() => setMode('add-friend')}
+            onClick={() => dispatch(setMode('add-friend'))}
             className="text-sm px-3 py-1 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white transition"
           >
             친구 추가
@@ -431,7 +430,7 @@ export default function RightPanel({ handleStartDM, mode, setMode, setSelectedFr
   }
 
   if (mode === 'dm') {
-    return (<>{selectedFriend && <DMRoomPage key={selectedFriend.email} selectedFriend={selectedFriend} />}</>);
+    return (<>{selectedFriend && <DMRoomPage key={selectedFriend.email} />}</>);
   }
 
   if (mode === 'shop') {
@@ -448,7 +447,7 @@ export default function RightPanel({ handleStartDM, mode, setMode, setSelectedFr
         <div className="text-base font-semibold text-black dark:text-white mt-1 flex items-center justify-between">
           <span>👤 친구 추가</span>
           <button
-            onClick={() => setMode('friends')}
+            onClick={() => dispatch(setMode('friends'))}
             className="text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-white"
           >
             ← 돌아가기

@@ -1,6 +1,6 @@
 import redis from '../utils/redis';
 
-const getCallRoomKey = (roomId: string) => `call_room:${roomId}`;
+export const getCallRoomKey = (roomId: string) => `call_room:${roomId}`;
 
 export async function startCallSession(roomId: string, caller: string, callee: string, callerEnded: boolean, calleeEnded: boolean) {
   await redis.hmset(getCallRoomKey(roomId), {

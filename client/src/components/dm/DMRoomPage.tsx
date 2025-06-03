@@ -11,20 +11,6 @@ import { Trash2, Phone, Monitor, PhoneOff, } from 'lucide-react';
 import { startCall } from '@/store/callSlice';
 import { endCall, clearIncomingCall, finalizeCall } from '@/store/callSlice';
 
-interface FriendWithRoom {
-  nickname: string;
-  tag: string;
-  email: string;
-  profileImage?: string;
-  color: string;
-  userStatus?: 'online' | 'offline' | 'away' | 'dnd';
-  roomId: string;
-}
-
-interface DMRoomPageProps {
-  selectedFriend: FriendWithRoom | null;
-}
-
 interface Message {
   _id: string;
   roomId: string;
@@ -36,7 +22,7 @@ interface Message {
   createdAt: string;
 }
 
-export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
+export default function DMRoomPage() {
   const dispatch = useDispatch();
 
   const [messages, setMessages] = useState<Message[]>([]);
@@ -48,6 +34,8 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
   const [lastFetchTime, setLastFetchTime] = useState(0);
   const [canLoadMore, setCanLoadMore] = useState(true);
   const MIN_FETCH_INTERVAL = 500;
+
+  const selectedFriend = useSelector((state: RootState) => state.ui.selectedFriend);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -428,8 +416,41 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
     });
   };
 
-  const handleStartCall = () => { //통화 걸기
+  useEffect(() => {
+    const stopRingback = () => {
+      if (ringbackAudioRef.current) {
+        ringbackAudioRef.current.pause();
+        ringbackAudioRef.current = null;
+      }
+    };
+
+    window.addEventListener('stop-ringback', stopRingback);
+
+    return () => {
+      window.removeEventListener('stop-ringback', stopRingback);
+    };
+  }, []);
+
+  const ringbackAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ringbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const handleStartCall = () => {
     if (!selectedFriend) return;
+    if (!selectedFriend || call.roomId === selectedFriend.roomId && (!call.callerEnded || !call.calleeEnded)) {
+      // 이미 해당 방에서 통화중이라면 중복 실행 방지
+      return;
+    }
+    // 연결음 시작
+    const audio = new Audio('/images/effect/caller.wav');
+    audio.loop = true;
+    ringbackAudioRef.current = audio;
+    audio.play().catch(() => console.warn('연결음 재생 실패'));
+
+    ringbackTimeoutRef.current = setTimeout(() => {
+      if (ringbackAudioRef.current) {
+        ringbackAudioRef.current.pause();
+        ringbackAudioRef.current = null;
+      }
+    }, 60_000);
 
     socket.emit('call:request', {
       to: selectedFriend.email,
@@ -451,6 +472,7 @@ export default function DMRoomPage({ selectedFriend }: DMRoomPageProps) {
       to:selectedFriend.email
     });
     dispatch(endCall());
+    window.dispatchEvent(new Event('stop-ringback'));
   };
 
   const handleJoinCall = () => {

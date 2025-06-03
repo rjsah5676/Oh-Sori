@@ -11,6 +11,7 @@ import RightPanel from '@/components/RightPanel';
 import { getSocket } from '@/lib/socket';
 import UserAvatar from '@/components/UserAvatar';
 import { setStatus } from '@/store/userStatusSlice';
+import { setSelectedFriend, setMode } from '@/store/uiSlice';
 
 interface FriendWithRoom {
   nickname: string;
@@ -35,8 +36,8 @@ export default function MainRedirectPage() {
   const color = useSelector((state: RootState) => state.auth.user?.color);
 
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [mode, setMode] = useState<'friends' | 'dm' | 'add-friend' | 'shop'>('friends');
-  const [selectedFriend, setSelectedFriend] = useState<FriendWithRoom | null>(null);
+  const selectedFriend = useSelector((state: RootState) => state.ui.selectedFriend);
+  const mode = useSelector((state: RootState) => state.ui.mode);
   const registerSentRef = useRef(false);
 
   const socket = getSocket();
@@ -214,9 +215,9 @@ export default function MainRedirectPage() {
       if (res.ok && data.roomId) {
         const target = dmList.find(f => f.email === targetEmail);
         if (target) {
-          setSelectedFriend({ ...target, roomId: data.roomId }); // ✅ 여기 roomId 추가
+          dispatch(setSelectedFriend({ ...target, roomId: data.roomId })); // ✅ 여기 roomId 추가
         }
-        setMode('dm');
+        dispatch(setMode('dm'));
         getSocket().emit('joinRoom', data.roomId); // ✅ 여기서도 제대로 된 roomId로 join
       } else {
         alert('DM 방 생성 실패');
@@ -269,8 +270,8 @@ export default function MainRedirectPage() {
                     : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
                 }`}
                 onClick={() => {
-                  setMode('friends');
-                  setSelectedFriend(null);
+                  dispatch(setMode('friends'));
+                  dispatch(setSelectedFriend(null));
                   setIsSidebarOpen(false);
                 }}
               >
@@ -293,8 +294,8 @@ export default function MainRedirectPage() {
                     : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
                 }`}
                 onClick={() => {
-                  setMode('shop');
-                  setSelectedFriend(null);
+                  dispatch(setMode('shop'));
+                  dispatch(setSelectedFriend(null));
                   setIsSidebarOpen(false);
                 }}
               >
@@ -394,8 +395,8 @@ export default function MainRedirectPage() {
                   : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
               onClick={() => {
-                setMode('friends');
-                setSelectedFriend(null);
+                dispatch(setMode('friends'));
+                dispatch(setSelectedFriend(null));
               }}
             >
               <Users className="w-5 h-5" />
@@ -413,8 +414,8 @@ export default function MainRedirectPage() {
                 mode === 'shop' ? 'bg-zinc-300 dark:bg-zinc-700 text-black dark:text-white' : 'text-black dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
               onClick={() => {
-                setMode('shop');
-                setSelectedFriend(null);
+                dispatch(setMode('shop'));
+                dispatch(setSelectedFriend(null));
               }}
             >
               <Store className="w-5 h-5" /> 상점
@@ -491,7 +492,7 @@ export default function MainRedirectPage() {
         </div>
       </div>
         <section className={`flex-1 min-h-screen p-6 overflow-y-auto ${mode === 'dm' ? 'pt-0' : 'pt-20 md:pt-6'}`}>
-          <RightPanel handleStartDM={handleStartDM} setSelectedFriend={setSelectedFriend} mode={mode} setMode={setMode} selectedFriend={selectedFriend} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
+          <RightPanel handleStartDM={handleStartDM} pendingCount={pendingCount} setPendingCount={setPendingCount}/>
         </section>
       </main>
     </>

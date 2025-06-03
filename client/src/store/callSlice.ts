@@ -31,6 +31,10 @@ export const callSlice = createSlice({
   name: 'call',
   initialState,
   reducers: {
+    clearCall: (state) => {
+      state.calleeEnded = true;
+      state.callerEnded = true;
+    },
     startCall: (state, action: PayloadAction<{ isCaller: boolean; roomId: string }>) => {
       state.isCaller = action.payload.isCaller;
       state.roomId = action.payload.roomId;
@@ -110,5 +114,5 @@ export const callSlice = createSlice({
   },
 });
 
-export const { startReCall,startCall,acceptCall, endCall, peerConnected, peerDisconnected, setIncomingCall, clearIncomingCall,peerEndedCall,finalizeCall } = callSlice.actions;
+export const { clearCall, startReCall,startCall,acceptCall, endCall, peerConnected, peerDisconnected, setIncomingCall, clearIncomingCall,peerEndedCall,finalizeCall } = callSlice.actions;
 export default callSlice.reducer;

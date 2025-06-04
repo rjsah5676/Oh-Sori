@@ -18,9 +18,8 @@ export const stopRingback = () => {
     ringbackAudio.currentTime = 0;
     ringbackAudio.src = "";
     ringbackAudio = null;
-    console.log("[stop-ringback] 연결음 정지 완료");
   } else {
-    console.log("[stop-ringback] 연결음 없음 (null)");
+    //
   }
 
   if (ringbackTimeout) {

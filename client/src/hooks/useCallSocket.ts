@@ -13,8 +13,21 @@ import {
 } from "@/store/callSlice";
 import { RootState } from "@/store/store";
 import { stopRingback } from "@/lib/ringbackManager";
+import {
+  clearLocalStream,
+  getLocalStream,
+  createPeerConnection,
+  getPeer,
+} from "@/lib/webrtc";
+import {
+  queuePendingCandidate,
+  flushPendingCandidates,
+} from "@/lib/webrtcPendingCandidates";
+import useModalConfirm from "./useModalConfirm";
+import { setMode } from "@/store/uiSlice";
 
 export default function useCallSocket() {
+  const { alert } = useModalConfirm();
   const dispatch = useDispatch();
   const myEmail =
     useSelector((state: RootState) => state.auth.user?.email) || "";
@@ -31,18 +44,27 @@ export default function useCallSocket() {
       socket.emit("register", myEmail);
     }
 
-    socket.on("call:resume-success", (data) => {
-      if (data && data.roomId) {
-        dispatch(
-          startReCall({
-            isCaller: data.isCaller,
-            roomId: data.roomId,
-            startedAt: data.startedAt,
-            callerEnded: data.callerEnded,
-            calleeEnded: data.calleeEnded,
-          })
-        );
-        playSound("/images/effect/join.ogg"); // 입장 사운드
+    const setupPeer = async () => {
+      const peer = createPeerConnection((remoteStream) => {
+        const audio = document.getElementById(
+          "remoteAudio"
+        ) as HTMLAudioElement;
+        if (audio) audio.srcObject = remoteStream;
+      });
+
+      const stream = await getLocalStream();
+      stream.getTracks().forEach((track) => {
+        peer.addTrack(track, stream);
+      });
+
+      await flushPendingCandidates(peer);
+    };
+
+    socket.on("call:resume-success", async (data) => {
+      if (data?.roomId) {
+        dispatch(startReCall(data));
+        await setupPeer();
+        playSound("/images/effect/join.ogg");
       }
     });
 
@@ -58,7 +80,7 @@ export default function useCallSocket() {
 
     socket.on("call:peer-connected", () => {
       dispatch(peerConnected());
-      playSound("/images/effect/join.ogg"); // 입장 사운드
+      playSound("/images/effect/join.ogg");
       stopRingback();
     });
 
@@ -69,40 +91,46 @@ export default function useCallSocket() {
     socket.on("call:end", () => {
       dispatch(peerEndedCall());
       dispatch(clearIncomingCall());
-      playSound("/images/effect/exit.ogg"); // 퇴장 사운드
+      playSound("/images/effect/exit.ogg");
       stopRingback();
     });
 
-    socket.on("call:reconn-success", (data) => {
-      if (data && data.roomId) {
-        dispatch(
-          startReCall({
-            isCaller: data.isCaller,
-            roomId: data.roomId,
-            startedAt: data.startedAt,
-            callerEnded: data.callerEnded,
-            calleeEnded: data.calleeEnded,
-          })
-        );
-        playSound("/images/effect/join.ogg"); // 재입장 사운드
+    socket.on("call:reconn-success", async (data) => {
+      if (data?.roomId) {
+        dispatch(startReCall(data));
+        await setupPeer();
+        playSound("/images/effect/join.ogg");
       }
     });
 
     socket.on("call:clear", () => {
       dispatch(clearCall());
       stopRingback();
+      clearLocalStream();
     });
 
     socket.on("call:re-clear", () => {
       dispatch(clearCall());
       stopRingback();
       playSound("/images/effect/exit.ogg");
+      clearLocalStream();
     });
 
     socket.on("call:busy", () => {
       alert("상대방이 현재 통화 중입니다.");
       dispatch(clearCall());
       stopRingback();
+      clearLocalStream();
+    });
+
+    // ✅ ICE 후보 수신
+    socket.on("webrtc:ice-candidate", async ({ candidate }) => {
+      const peer = getPeer();
+      if (peer?.remoteDescription?.type) {
+        await peer.addIceCandidate(new RTCIceCandidate(candidate));
+      } else {
+        queuePendingCandidate(candidate);
+      }
     });
 
     return () => {
@@ -115,7 +143,7 @@ export default function useCallSocket() {
       socket.off("call:clear");
       socket.off("call:re-clear");
       socket.off("call:busy");
-      socket.off("call:re-call");
+      socket.off("webrtc:ice-candidate");
     };
   }, [dispatch, myEmail]);
 }

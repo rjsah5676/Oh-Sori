@@ -3,9 +3,9 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import mongoose from "mongoose";
-import { initSocket } from './socket';
-import http from 'http';
-import path from 'path';
+import { initSocket } from "./socket";
+import http from "http";
+import path from "path";
 
 dotenv.config();
 
@@ -29,21 +29,21 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-app.use('/uploads/dms', express.static(path.join(__dirname, '../uploads/dms')));
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+app.use("/uploads/dms", express.static(path.join(__dirname, "../uploads/dms")));
 
 // 라우트 등록
 import authRouter from "./routes/auth";
 app.use("/api/auth", authRouter);
 
-import friendsRouter from './routes/friend';
-app.use('/api/friends', friendsRouter);
+import friendsRouter from "./routes/friend";
+app.use("/api/friends", friendsRouter);
 
 import dmRouter from "./routes/dm";
-app.use('/api/dms', dmRouter);
+app.use("/api/dms", dmRouter);
 
-import userRouter from './routes/users';
-app.use('/api/users', userRouter);
+import userRouter from "./routes/users";
+app.use("/api/users", userRouter);
 
 app.get("/api", (req, res) => {
   res.json({ message: "Hello from /api" });

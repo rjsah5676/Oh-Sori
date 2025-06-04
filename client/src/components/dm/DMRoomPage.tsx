@@ -1,22 +1,23 @@
-'use client';
+"use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import DMHeader from './DMHeader';
-import { getSocket } from '@/lib/socket';
-import { useSelector,useDispatch } from 'react-redux';
-import { RootState } from '@/store/store';
-import UserAvatar from '@/components/UserAvatar';
-import dayjs from 'dayjs';
-import { Trash2, Phone, Monitor, PhoneOff, } from 'lucide-react';
-import { startCall } from '@/store/callSlice';
-import { endCall, clearIncomingCall, finalizeCall } from '@/store/callSlice';
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import DMHeader from "./DMHeader";
+import { getSocket } from "@/lib/socket";
+import { useSelector, useDispatch } from "react-redux";
+import { RootState } from "@/store/store";
+import UserAvatar from "@/components/UserAvatar";
+import dayjs from "dayjs";
+import { Trash2, Phone, Monitor, PhoneOff } from "lucide-react";
+import { startCall } from "@/store/callSlice";
+import { endCall, clearIncomingCall, finalizeCall } from "@/store/callSlice";
+import { startVoiceCall, endVoiceCall } from "@/lib/callUtils";
 
 interface Message {
   _id: string;
   roomId: string;
   sender: string;
   content: string;
-  attachments?: { type: string; url: string; filename: string, size: number }[];
+  attachments?: { type: string; url: string; filename: string; size: number }[];
   isReadBy: string[];
   deletedBy: string[];
   createdAt: string;
@@ -26,7 +27,7 @@ export default function DMRoomPage() {
   const dispatch = useDispatch();
 
   const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState("");
   const [isMobile, setIsMobile] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -35,20 +36,29 @@ export default function DMRoomPage() {
   const [canLoadMore, setCanLoadMore] = useState(true);
   const MIN_FETCH_INTERVAL = 500;
 
-  const selectedFriend = useSelector((state: RootState) => state.ui.selectedFriend);
+  const selectedFriend = useSelector(
+    (state: RootState) => state.ui.selectedFriend
+  );
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const socket = getSocket();
-  const myEmail = useSelector((state: RootState) => state.auth.user?.email) || '';
-  const myProfileImage = useSelector((state: RootState) => state.auth.user?.profileImage);
-  const myName = useSelector((state: RootState) => state.auth.user?.nickname) || '';
-  const myTag = useSelector((state: RootState) => state.auth.user?.tag) || '';
-  const myColor = useSelector((state: RootState) => state.auth.user?.color) || '';
-  const userStatus = useSelector(
-    (state: RootState) => selectedFriend?.email ? state.userStatus.statuses[selectedFriend.email] : 'offline'
+  const myEmail =
+    useSelector((state: RootState) => state.auth.user?.email) || "";
+  const myProfileImage = useSelector(
+    (state: RootState) => state.auth.user?.profileImage
+  );
+  const myName =
+    useSelector((state: RootState) => state.auth.user?.nickname) || "";
+  const myTag = useSelector((state: RootState) => state.auth.user?.tag) || "";
+  const myColor =
+    useSelector((state: RootState) => state.auth.user?.color) || "";
+  const userStatus = useSelector((state: RootState) =>
+    selectedFriend?.email
+      ? state.userStatus.statuses[selectedFriend.email]
+      : "offline"
   );
 
   const call = useSelector((state: RootState) => state.call); //통화 상태
@@ -56,8 +66,8 @@ export default function DMRoomPage() {
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
   useEffect(() => {
@@ -66,7 +76,10 @@ export default function DMRoomPage() {
       if (!selectedFriend || !myEmail) return;
 
       if (msg.roomId === selectedFriend.roomId) {
-        socket.emit('markAsRead', { roomId: selectedFriend.roomId, email: myEmail });
+        socket.emit("markAsRead", {
+          roomId: selectedFriend.roomId,
+          email: myEmail,
+        });
       }
       setMessages((prev) => {
         if (prev.find((m) => m._id === msg._id)) return prev;
@@ -76,34 +89,42 @@ export default function DMRoomPage() {
         requestAnimationFrame(() => {
           const el = containerRef.current;
           if (!el) return;
-          const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200;
+          const nearBottom =
+            el.scrollHeight - el.scrollTop - el.clientHeight < 200;
 
           if (nearBottom || msg.sender === myEmail) {
             el.scrollTop = el.scrollHeight;
           }
         });
       }, 0);
-
     };
 
-    socket.on('receiveMessage', handleReceiveMessage);
+    socket.on("receiveMessage", handleReceiveMessage);
     return () => {
-      socket.off('receiveMessage', handleReceiveMessage);
+      socket.off("receiveMessage", handleReceiveMessage);
     };
   }, [selectedFriend, myEmail]);
 
   const fetchMessages = async (initial = false) => {
-    if (!selectedFriend?.email || !selectedFriend?.roomId || isLoading || !hasMore) return;
+    if (
+      !selectedFriend?.email ||
+      !selectedFriend?.roomId ||
+      isLoading ||
+      !hasMore
+    )
+      return;
     setIsLoading(true);
     const el = containerRef.current;
     const prevScrollHeight = el?.scrollHeight || 0;
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/dms/messages?target=${encodeURIComponent(
+        `${
+          process.env.NEXT_PUBLIC_API_URL
+        }/api/dms/messages?target=${encodeURIComponent(
           selectedFriend.email
         )}&skip=${initial ? 0 : messages.length}&limit=20`,
-        { credentials: 'include' }
+        { credentials: "include" }
       );
       const data = await res.json();
       if (res.ok) {
@@ -111,7 +132,10 @@ export default function DMRoomPage() {
         setMessages((prev) => {
           const all = [...data.messages, ...prev];
           const unique = new Map(all.map((m) => [m._id, m]));
-          return Array.from(unique.values()).sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+          return Array.from(unique.values()).sort(
+            (a, b) =>
+              new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
         });
         if (!initial) {
           requestAnimationFrame(() => {
@@ -119,15 +143,15 @@ export default function DMRoomPage() {
           });
         } else {
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dms/read`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({ roomId: selectedFriend.roomId }),
           });
         }
       }
     } catch (err) {
-      console.error('메시지 로딩 실패:', err);
+      console.error("메시지 로딩 실패:", err);
     } finally {
       setIsLoading(false);
     }
@@ -139,10 +163,10 @@ export default function DMRoomPage() {
 
   useLayoutEffect(() => {
     if (!initialScrollDone && messages.length > 0) {
-  const el = containerRef.current;
-  if (el) el.scrollTop = el.scrollHeight;
-  setInitialScrollDone(true);
-}
+      const el = containerRef.current;
+      if (el) el.scrollTop = el.scrollHeight;
+      setInitialScrollDone(true);
+    }
   }, [messages, initialScrollDone]);
 
   const handleScroll = () => {
@@ -150,7 +174,12 @@ export default function DMRoomPage() {
     const now = Date.now();
     if (!el) return;
     if (el.scrollTop < 100) {
-      if (canLoadMore && hasMore && !isLoading && now - lastFetchTime > MIN_FETCH_INTERVAL) {
+      if (
+        canLoadMore &&
+        hasMore &&
+        !isLoading &&
+        now - lastFetchTime > MIN_FETCH_INTERVAL
+      ) {
         setLastFetchTime(now);
         setCanLoadMore(false);
         fetchMessages(false);
@@ -163,51 +192,61 @@ export default function DMRoomPage() {
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    el.addEventListener('scroll', handleScroll);
-    return () => el.removeEventListener('scroll', handleScroll);
-  }, [hasMore, isLoading, selectedFriend, messages, lastFetchTime, canLoadMore]);
+    el.addEventListener("scroll", handleScroll);
+    return () => el.removeEventListener("scroll", handleScroll);
+  }, [
+    hasMore,
+    isLoading,
+    selectedFriend,
+    messages,
+    lastFetchTime,
+    canLoadMore,
+  ]);
 
   const handleSend = async () => {
-    if (!selectedFriend?.roomId || (!input.trim() && pendingFiles.length === 0)) return;
+    if (!selectedFriend?.roomId || (!input.trim() && pendingFiles.length === 0))
+      return;
 
-    let attachments: Message['attachments'] = [];
+    let attachments: Message["attachments"] = [];
 
     if (pendingFiles.length > 0) {
       const formData = new FormData();
-      pendingFiles.forEach((file) => formData.append('files', file));
-      formData.append('roomId', selectedFriend.roomId);
+      pendingFiles.forEach((file) => formData.append("files", file));
+      formData.append("roomId", selectedFriend.roomId);
 
       try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/dms/upload`, {
-          method: 'POST',
-          body: formData,
-          credentials: 'include',
-        });
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/dms/upload`,
+          {
+            method: "POST",
+            body: formData,
+            credentials: "include",
+          }
+        );
         const data = await res.json();
         if (!res.ok) throw new Error(data.message);
         attachments = data.attachments;
       } catch (err) {
-        alert('파일 업로드 실패');
+        alert("파일 업로드 실패");
         console.error(err);
         return;
       }
     }
 
-    socket.emit('sendMessage', {
+    socket.emit("sendMessage", {
       roomId: selectedFriend.roomId,
       sender: myEmail,
       content: input.trim(),
       attachments,
     });
 
-    setInput('');
+    setInput("");
     setPendingFiles([]);
-    if (textareaRef.current) textareaRef.current.style.height = '40px';
+    if (textareaRef.current) textareaRef.current.style.height = "40px";
   };
 
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (!isMobile && e.key === 'Enter' && !e.shiftKey) {
+    if (!isMobile && e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
@@ -216,7 +255,7 @@ export default function DMRoomPage() {
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = "auto";
       textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
     }
   };
@@ -237,11 +276,11 @@ export default function DMRoomPage() {
     };
 
     if (showAttachMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener("mousedown", handleClickOutside);
     }
 
     return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener("mousedown", handleClickOutside);
     };
   }, [showAttachMenu]);
 
@@ -250,15 +289,15 @@ export default function DMRoomPage() {
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setModalImageUrl(null);
+      if (e.key === "Escape") setModalImageUrl(null);
     };
 
     if (modalImageUrl) {
-      document.addEventListener('keydown', handleEsc);
+      document.addEventListener("keydown", handleEsc);
     }
 
     return () => {
-      document.removeEventListener('keydown', handleEsc);
+      document.removeEventListener("keydown", handleEsc);
     };
   }, [modalImageUrl]);
 
@@ -269,92 +308,105 @@ export default function DMRoomPage() {
   };
 
   function formatBytes(bytes: number): string {
-    if (!bytes || typeof bytes !== 'number') return '0 Bytes';
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    if (!bytes || typeof bytes !== "number") return "0 Bytes";
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(1024));
     const value = (bytes / Math.pow(1024, i)).toFixed(2);
     return `${value} ${sizes[i]}`;
   }
 
   const renderMessagesWithDateDividers = () => {
-    let lastDate = '';
+    let lastDate = "";
     return messages.map((msg) => {
       const isMine = msg.sender === myEmail;
-      const dateStr = dayjs(msg.createdAt).format('YYYY-MM-DD');
+      const dateStr = dayjs(msg.createdAt).format("YYYY-MM-DD");
       const showDivider = dateStr !== lastDate;
       lastDate = dateStr;
 
       return (
         <div key={`msg-${msg._id}`}>
           {modalImageUrl && (
-          <div
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
-            onClick={() => setModalImageUrl(null)}
-          >
-            <button
-              className="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-800/80 text-white hover:bg-zinc-700 text-xl flex items-center justify-center z-[110]"
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm"
               onClick={() => setModalImageUrl(null)}
             >
-              ×
-            </button>
-            <div
-              className="relative max-w-[90vw] max-h-[90vh]"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <img
-                src={modalImageUrl}
-                alt="확대 이미지"
-                className="rounded-lg border border-white max-h-[90vh] object-contain"
-              />
+              <button
+                className="absolute top-4 right-4 w-10 h-10 rounded-full bg-zinc-800/80 text-white hover:bg-zinc-700 text-xl flex items-center justify-center z-[110]"
+                onClick={() => setModalImageUrl(null)}
+              >
+                ×
+              </button>
+              <div
+                className="relative max-w-[90vw] max-h-[90vh]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <img
+                  src={modalImageUrl}
+                  alt="확대 이미지"
+                  className="rounded-lg border border-white max-h-[90vh] object-contain"
+                />
+              </div>
             </div>
-          </div>
-        )}
+          )}
           {showDivider && (
             <div className="flex items-center justify-center my-4 text-xs text-zinc-500">
               <div className="flex-grow border-t border-zinc-300 dark:border-zinc-700"></div>
               <span className="px-3 whitespace-nowrap">
-                {dayjs(msg.createdAt).format('YYYY년 M월 D일')}
+                {dayjs(msg.createdAt).format("YYYY년 M월 D일")}
               </span>
               <div className="flex-grow border-t border-zinc-300 dark:border-zinc-700"></div>
             </div>
           )}
 
-          <div key={msg._id} className={`flex gap-3 flex-wrap items-start ${isMine ? 'flex-row-reverse' : ''}`}>
+          <div
+            key={msg._id}
+            className={`flex gap-3 flex-wrap items-start ${
+              isMine ? "flex-row-reverse" : ""
+            }`}
+          >
             <UserAvatar
-              profileImage={isMine ? myProfileImage : selectedFriend.profileImage}
-              userStatus={isMine ? 'online' : userStatus || 'offline'}
+              profileImage={
+                isMine ? myProfileImage : selectedFriend.profileImage
+              }
+              userStatus={isMine ? "online" : userStatus || "offline"}
               color={isMine ? undefined : selectedFriend.color}
               size={36}
               badgeOffsetX={-3}
               badgeOffsetY={-3}
             />
-            <div className={`flex flex-col max-w-md min-w-0 ${isMine ? 'items-end' : 'items-start'}`}>
+            <div
+              className={`flex flex-col max-w-md min-w-0 ${
+                isMine ? "items-end" : "items-start"
+              }`}
+            >
               <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                { isMine? 
-                <>
-                <span className="text-xs text-zinc-500">
-                  {new Date(msg.createdAt).toLocaleString('ko-KR', {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })}
-                </span>{' '}{myName}
-                </>
-                :
-                <>
-                  {selectedFriend.nickname}{' '}<span className="text-xs text-zinc-500">
-                  {new Date(msg.createdAt).toLocaleString('ko-KR', {
-                    dateStyle: 'short',
-                    timeStyle: 'short',
-                  })}
-                </span>
-                </>
-                }
+                {isMine ? (
+                  <>
+                    <span className="text-xs text-zinc-500">
+                      {new Date(msg.createdAt).toLocaleString("ko-KR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
+                    </span>{" "}
+                    {myName}
+                  </>
+                ) : (
+                  <>
+                    {selectedFriend.nickname}{" "}
+                    <span className="text-xs text-zinc-500">
+                      {new Date(msg.createdAt).toLocaleString("ko-KR", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}
+                    </span>
+                  </>
+                )}
               </div>
               <div
                 className={`max-w-[180px] md:max-w-[320px] whitespace-pre-wrap break-words px-4 py-2 rounded-lg text-sm ${
                   isMine
-                    ? 'bg-indigo-500 text-white self-end'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white self-start'
+                    ? "bg-indigo-500 text-white self-end"
+                    : "bg-zinc-100 dark:bg-zinc-800 text-black dark:text-white self-start"
                 }`}
               >
                 {msg.attachments && msg.attachments.length > 0 && (
@@ -363,14 +415,14 @@ export default function DMRoomPage() {
                       const fileUrl = `${process.env.NEXT_PUBLIC_API_URL}${file.url}`;
                       const isLast = i === msg.attachments!.length - 1;
                       const key = `${msg._id}-${i}`;
-                      if (file.type === 'image') {
+                      if (file.type === "image") {
                         return (
                           <img
                             key={key}
                             src={fileUrl}
                             alt={file.filename}
                             onClick={() => setModalImageUrl(fileUrl)}
-                           onLoad={() => {
+                            onLoad={() => {
                               if (!isLast) return;
                               const el = containerRef.current;
                               if (!el) return;
@@ -416,74 +468,49 @@ export default function DMRoomPage() {
     });
   };
 
-  useEffect(() => {
-    const stopRingback = () => {
-      if (ringbackAudioRef.current) {
-        ringbackAudioRef.current.pause();
-        ringbackAudioRef.current = null;
-      }
-    };
-
-    window.addEventListener('stop-ringback', stopRingback);
-
-    return () => {
-      window.removeEventListener('stop-ringback', stopRingback);
-    };
-  }, []);
-
-  const ringbackAudioRef = useRef<HTMLAudioElement | null>(null);
-  const ringbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const handleStartCall = () => {
-    if (!selectedFriend) return;
-    if (!selectedFriend || call.roomId === selectedFriend.roomId && (!call.callerEnded || !call.calleeEnded)) {
-      // 이미 해당 방에서 통화중이라면 중복 실행 방지
+    if (!selectedFriend) {
       return;
     }
-    // 연결음 시작
-    const audio = new Audio('/images/effect/caller.wav');
-    audio.loop = true;
-    ringbackAudioRef.current = audio;
-    audio.play().catch(() => console.warn('연결음 재생 실패'));
-
-    ringbackTimeoutRef.current = setTimeout(() => {
-      if (ringbackAudioRef.current) {
-        ringbackAudioRef.current.pause();
-        ringbackAudioRef.current = null;
-      }
-    }, 60_000);
-
-    socket.emit('call:request', {
-      to: selectedFriend.email,
+    if (
+      call.roomId === selectedFriend.roomId &&
+      (!call.callerEnded || !call.calleeEnded)
+    ) {
+      return;
+    }
+    startVoiceCall({
+      socket,
+      dispatch,
+      caller: myEmail,
+      target: selectedFriend.email,
       roomId: selectedFriend.roomId,
-      from: myEmail,
       nickname: myName,
       tag: myTag,
-      profileImage: myProfileImage,
+      profileImage: myProfileImage ?? undefined,
       color: myColor,
     });
-    dispatch(startCall({ isCaller: true, roomId: selectedFriend.roomId }));
   };
 
-  const handleEndCall = () => { //통화 끊기
-    if (!selectedFriend?.roomId) return;
+  const handleEndCall = () => {
+    if (!selectedFriend) return;
 
-    socket.emit('call:end', {
+    endVoiceCall({
+      socket,
+      dispatch,
       roomId: selectedFriend.roomId,
-      to:selectedFriend.email
+      targetEmail: selectedFriend.email,
     });
-    dispatch(endCall());
-    window.dispatchEvent(new Event('stop-ringback'));
   };
 
   const handleJoinCall = () => {
     const roomId = selectedFriend?.roomId;
-    if(!roomId || !myEmail) return;
-    socket.emit('call:reconn', {
+    if (!roomId || !myEmail) return;
+    socket.emit("call:reconn", {
       roomId,
-      from:myEmail
-    })
+      from: myEmail,
+    });
     dispatch(clearIncomingCall());
-  }
+  };
 
   useEffect(() => {
     if (call.callerEnded && call.calleeEnded) {
@@ -494,122 +521,141 @@ export default function DMRoomPage() {
   return (
     <div className="h-[90vh] md:h-[96vh] flex flex-col bg-white dark:bg-zinc-900">
       <div className="shrink-0">
-        <DMHeader onStartCall={handleStartCall} {...selectedFriend} userStatus={userStatus || 'offline'} />
+        <DMHeader
+          onStartCall={handleStartCall}
+          {...selectedFriend}
+          userStatus={userStatus || "offline"}
+        />
       </div>
 
-      {selectedFriend?.roomId === call.roomId && (!call.callerEnded || !call.calleeEnded) && (
-        <div className="relative bg-black text-white py-6 px-4 flex flex-col items-center justify-center shadow-md">
-          <div className="flex items-center justify-center gap-10 mb-4">
-            {/* 본인 아바타 */}
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className={`rounded-full ${
-                  (call.isCaller && call.callerEnded) || (!call.isCaller && call.calleeEnded)
-                    ? 'grayscale blur-[2px] opacity-60'
-                    : ''
-                }`}
-              >
-                <UserAvatar profileImage={myProfileImage} userStatus={null} size={64} />
+      {selectedFriend?.roomId === call.roomId &&
+        (!call.callerEnded || !call.calleeEnded) && (
+          <div className="relative bg-black text-white py-6 px-4 flex flex-col items-center justify-center shadow-md">
+            <div className="flex items-center justify-center gap-10 mb-4">
+              {/* 본인 아바타 */}
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className={`rounded-full ${
+                    (call.isCaller && call.callerEnded) ||
+                    (!call.isCaller && call.calleeEnded)
+                      ? "grayscale blur-[2px] opacity-60"
+                      : ""
+                  }`}
+                >
+                  <UserAvatar
+                    profileImage={myProfileImage}
+                    userStatus={null}
+                    size={64}
+                  />
+                </div>
+                <div className="text-xs">{myName}</div>
               </div>
-              <div className="text-xs">{myName}</div>
+
+              {/* 상대방 아바타 */}
+              <div className="flex flex-col items-center gap-1">
+                <div
+                  className={`rounded-full ${
+                    (call.isCaller && call.calleeEnded) ||
+                    (!call.isCaller && call.callerEnded)
+                      ? "grayscale blur-[2px] opacity-60"
+                      : ""
+                  }`}
+                >
+                  <UserAvatar
+                    profileImage={selectedFriend.profileImage}
+                    userStatus={null}
+                    size={64}
+                    color={selectedFriend.color}
+                  />
+                </div>
+                <div className="text-xs">{selectedFriend.nickname}</div>
+              </div>
             </div>
 
-            {/* 상대방 아바타 */}
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className={`rounded-full ${
-                  (call.isCaller && call.calleeEnded) || (!call.isCaller && call.callerEnded)
-                    ? 'grayscale blur-[2px] opacity-60'
-                    : ''
-                }`}
-              >
-                <UserAvatar
-                  profileImage={selectedFriend.profileImage}
-                  userStatus={null}
-                  size={64}
-                  color={selectedFriend.color}
-                />
-              </div>
-              <div className="text-xs">{selectedFriend.nickname}</div>
+            <div className="flex items-center gap-4 mt-4">
+              {/* 본인이 아직 통화 참여 안한 상태면 참여 버튼 보여주기 */}
+              {(call.isCaller && call.callerEnded) ||
+              (!call.isCaller && call.calleeEnded) ? (
+                <button
+                  onClick={handleJoinCall}
+                  className="w-12 h-12 flex items-center justify-center rounded-full bg-green-600 hover:bg-green-700 transition"
+                >
+                  <Phone className="w-5 h-5 text-white" />
+                </button>
+              ) : (
+                <>
+                  {/* 화면 공유 버튼 */}
+                  <button
+                    onClick={() =>
+                      alert("화면 공유 기능은 아직 구현되지 않았습니다.")
+                    }
+                    className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition"
+                  >
+                    <Monitor className="w-5 h-5 text-white" />
+                  </button>
+
+                  {/* 통화 종료 버튼 */}
+                  <button
+                    onClick={handleEndCall}
+                    className="w-12 h-12 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 transition"
+                  >
+                    <PhoneOff className="w-5 h-5 text-white" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
+        )}
 
-          <div className="flex items-center gap-4 mt-4">
-            {/* 본인이 아직 통화 참여 안한 상태면 참여 버튼 보여주기 */}
-            {((call.isCaller && call.callerEnded) || (!call.isCaller && call.calleeEnded)) ? (
-              <button
-                onClick={handleJoinCall}
-                className="w-12 h-12 flex items-center justify-center rounded-full bg-green-600 hover:bg-green-700 transition"
-              >
-                <Phone className="w-5 h-5 text-white" />
-              </button>
-            ) : (
-              <>
-                {/* 화면 공유 버튼 */}
-                <button
-                  onClick={() => alert('화면 공유 기능은 아직 구현되지 않았습니다.')}
-                  className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition"
-                >
-                  <Monitor className="w-5 h-5 text-white" />
-                </button>
-
-                {/* 통화 종료 버튼 */}
-                <button
-                  onClick={handleEndCall}
-                  className="w-12 h-12 flex items-center justify-center rounded-full bg-red-600 hover:bg-red-700 transition"
-                >
-                  <PhoneOff className="w-5 h-5 text-white" />
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      <div ref={containerRef} className="flex-1 overflow-y-auto px-4 py-2 space-y-4">
+      <div
+        ref={containerRef}
+        className="flex-1 overflow-y-auto px-4 py-2 space-y-4"
+      >
         {renderMessagesWithDateDividers()}
         <div ref={scrollRef} />
       </div>
       {pendingFiles.length > 0 && (
-      <div className="mx-3 mb-2 p-3 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg overflow-x-auto">
-        <div className="flex gap-3">
-          {pendingFiles.map((file, index) => {
-            const isImage = file.type.startsWith('image/');
-            const objectUrl = URL.createObjectURL(file);
+        <div className="mx-3 mb-2 p-3 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg overflow-x-auto">
+          <div className="flex gap-3">
+            {pendingFiles.map((file, index) => {
+              const isImage = file.type.startsWith("image/");
+              const objectUrl = URL.createObjectURL(file);
 
-            return (
-              <div
-                key={index}
-                className="relative w-24 h-24 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 overflow-hidden flex items-center justify-center shrink-0"
-              >
-                {isImage ? (
-                  <img
-                    src={objectUrl}
-                    alt={file.name}
-                    className="object-cover w-full h-full"
-                  />
-                ) : (
-                  <div className="flex flex-col items-center justify-center w-full h-full text-zinc-500 dark:text-white text-3xl">
-                    📄
-                  </div>
-                )}
-                <button
-                  className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center"
-                  onClick={() =>
-                    setPendingFiles((prev) => prev.filter((_, i) => i !== index))
-                  }
+              return (
+                <div
+                  key={index}
+                  className="relative w-24 h-24 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 overflow-hidden flex items-center justify-center shrink-0"
                 >
-                  <Trash2 size={12} strokeWidth={2} />
-                </button>
-                <div className="absolute bottom-0 w-full bg-black/70 text-white text-[10px] px-1 truncate">
-                  {file.name}
+                  {isImage ? (
+                    <img
+                      src={objectUrl}
+                      alt={file.name}
+                      className="object-cover w-full h-full"
+                    />
+                  ) : (
+                    <div className="flex flex-col items-center justify-center w-full h-full text-zinc-500 dark:text-white text-3xl">
+                      📄
+                    </div>
+                  )}
+                  <button
+                    className="absolute top-0.5 right-0.5 w-5 h-5 bg-red-600 hover:bg-red-700 text-white rounded-full flex items-center justify-center"
+                    onClick={() =>
+                      setPendingFiles((prev) =>
+                        prev.filter((_, i) => i !== index)
+                      )
+                    }
+                  >
+                    <Trash2 size={12} strokeWidth={2} />
+                  </button>
+                  <div className="absolute bottom-0 w-full bg-black/70 text-white text-[10px] px-1 truncate">
+                    {file.name}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </div>
-    )}
+      )}
 
       <div className="shrink-0 border-t px-3 py-3 flex items-end gap-2 bg-white dark:bg-zinc-900 relative">
         <input
@@ -620,14 +666,17 @@ export default function DMRoomPage() {
           className="hidden"
         />
         {showAttachMenu && (
-          <div ref={attachMenuRef} className="absolute bottom-16 [0.25rem] bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-lg z-50">
+          <div
+            ref={attachMenuRef}
+            className="absolute bottom-16 [0.25rem] bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg shadow-lg z-50"
+          >
             <button
               className="w-full text-left px-4 py-2 text-sm 
              bg-white dark:bg-zinc-800 
              hover:bg-zinc-100 dark:hover:bg-zinc-700 
              rounded-md hover:rounded-md"
               onClick={() => {
-                document.getElementById('dm-file-input')?.click();
+                document.getElementById("dm-file-input")?.click();
                 setShowAttachMenu(false);
               }}
             >
@@ -642,7 +691,7 @@ export default function DMRoomPage() {
           +
         </button>
         <textarea
-          style={{ maxHeight: '120px' }}
+          style={{ maxHeight: "120px" }}
           ref={textareaRef}
           value={input}
           onChange={handleInputChange}

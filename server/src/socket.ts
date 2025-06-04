@@ -1,14 +1,22 @@
-import { Server } from 'socket.io';
-import dotenv from 'dotenv';
-import { setUserStatus, getUserStatus } from './services/statusService';
+import { Server } from "socket.io";
+import dotenv from "dotenv";
+import { setUserStatus, getUserStatus } from "./services/statusService";
 
-import DMMessage from './models/DMMessage';
-import DMRoom from './models/DMRoom';
-import mongoose from 'mongoose';
+import DMMessage from "./models/DMMessage";
+import DMRoom from "./models/DMRoom";
+import mongoose from "mongoose";
 
-import { startCallSession, endCallForUser, getCallSession, acceptCall, reconnCall, getCallRoomKey } from './services/callService';
+import {
+  startCallSession,
+  endCallForUser,
+  getCallSession,
+  acceptCall,
+  reconnCall,
+  getCallRoomKey,
+  isUserInCall,
+} from "./services/callService";
 
-import redis from './utils/redis';
+import redis from "./utils/redis";
 
 dotenv.config();
 
@@ -27,8 +35,8 @@ function start3MinTimeout(roomId: string, caller: string, callee: string) {
     const session = await getCallSession(roomId);
     if (!session) return;
 
-    const callerEnded = session.callerEnded === 'true';
-    const calleeEnded = session.calleeEnded === 'true';
+    const callerEnded = session.callerEnded === "true";
+    const calleeEnded = session.calleeEnded === "true";
     if (callerEnded && calleeEnded) return; // 이미 둘 다 종료 상태면 skip
 
     console.log(`⏰ 3분 경과 - ${roomId} 방 제거`);
@@ -38,8 +46,8 @@ function start3MinTimeout(roomId: string, caller: string, callee: string) {
     const callerSocket = userSocketMap.get(caller);
     const calleeSocket = userSocketMap.get(callee);
 
-    if (callerSocket) ioInstance?.to(callerSocket).emit('call:clear');
-    if (calleeSocket) ioInstance?.to(calleeSocket).emit('call:clear');
+    if (callerSocket) ioInstance?.to(callerSocket).emit("call:clear");
+    if (calleeSocket) ioInstance?.to(calleeSocket).emit("call:clear");
   }, 180_000);
 
   roomTimeouts.set(roomId, timeout);
@@ -54,14 +62,14 @@ function clearTimeoutForRoom(roomId: string) {
 }
 
 const handleCallCleanup = async (email: string) => {
-  const keys = await redis.keys('call_room:*');
+  const keys = await redis.keys("call_room:*");
 
   for (const key of keys) {
     const session = await redis.hgetall(key);
     if (!session) continue;
 
     const { caller, callee, callerEnded, calleeEnded } = session;
-    const roomId = key.replace('call_room:', '');
+    const roomId = key.replace("call_room:", "");
 
     if (caller === email || callee === email) {
       await endCallForUser(roomId, email);
@@ -70,13 +78,13 @@ const handleCallCleanup = async (email: string) => {
       const peerSocketId = userSocketMap.get(peerEmail);
 
       if (peerSocketId) {
-        ioInstance?.to(peerSocketId).emit('call:end');
+        ioInstance?.to(peerSocketId).emit("call:end");
         console.log(`📴 통화 종료 알림 (본인만 종료): ${email} → ${peerEmail}`);
       }
 
       // 🔥 타이머 돌리기 (이미 종료 안 됐을 때만)
-      const oneEnded = callerEnded === 'true' || calleeEnded === 'true';
-      const bothEnded = callerEnded === 'true' && calleeEnded === 'true';
+      const oneEnded = callerEnded === "true" || calleeEnded === "true";
+      const bothEnded = callerEnded === "true" && calleeEnded === "true";
 
       if (!bothEnded && oneEnded) {
         start3MinTimeout(roomId, caller, callee);
@@ -95,54 +103,54 @@ export const initSocket = (server: any) => {
     },
   });
 
-  io.on('connection', (socket) => {
-    console.log('🟢 소켓 연결됨:', socket.id);
+  io.on("connection", (socket) => {
+    console.log("🟢 소켓 연결됨:", socket.id);
 
-    socket.on('register', async (email: string) => {
+    socket.on("register", async (email: string) => {
       userSocketMap.set(email, socket.id);
       socketToEmail.set(socket.id, email);
 
       console.log(`✅ 사용자 등록됨: ${email} → ${socket.id}`);
-      await setUserStatus(email, 'online');
-      
-      const keys = await redis.keys('call_room:*');
-      console.log('🧪 현재 Redis 통화 키 수:', keys.length);
-        for (const key of keys) {
-          const session = await redis.hgetall(key);
-          if (!session || !session.startedAt) continue;
-          const { caller, callee, callerEnded, calleeEnded } = session;
-          const roomId = key.replace('call_room:', '');
+      await setUserStatus(email, "online");
 
-          const isParticipant = caller === email || callee === email;
-          if (isParticipant) {
-            const isCaller = caller === email;
-            socket.emit('call:resume-success', {
-              roomId,
-              isCaller,
-              startedAt: Number(session.startedAt),
-              callerEnded: callerEnded === 'true',
-              calleeEnded: calleeEnded === 'true',
-            });
-            console.log(`📞 [register] 통화 세션 복구됨 → ${email} (${roomId})`);
-          }
+      const keys = await redis.keys("call_room:*");
+      console.log("🧪 현재 Redis 통화 키 수:", keys.length);
+      for (const key of keys) {
+        const session = await redis.hgetall(key);
+        if (!session || !session.startedAt) continue;
+        const { caller, callee, callerEnded, calleeEnded } = session;
+        const roomId = key.replace("call_room:", "");
+
+        const isParticipant = caller === email || callee === email;
+        if (isParticipant) {
+          const isCaller = caller === email;
+          socket.emit("call:resume-success", {
+            roomId,
+            isCaller,
+            startedAt: Number(session.startedAt),
+            callerEnded: callerEnded === "true",
+            calleeEnded: calleeEnded === "true",
+          });
+          console.log(`📞 [register] 통화 세션 복구됨 → ${email} (${roomId})`);
         }
+      }
 
       const currentStatus = await getUserStatus(email);
-      io.emit('status-update', { email, status: currentStatus });
-      socket.emit('registered');
+      io.emit("status-update", { email, status: currentStatus });
+      socket.emit("registered");
     });
 
-    socket.on('joinRoom', (roomId: string) => {
+    socket.on("joinRoom", (roomId: string) => {
       socket.join(roomId);
       console.log(`🟡 ${socket.id} 방 입장: ${roomId}`);
     });
 
-    socket.on('leaveRoom', (roomId: string) => {
+    socket.on("leaveRoom", (roomId: string) => {
       socket.leave(roomId);
       console.log(`⚪ ${socket.id} 방 퇴장: ${roomId}`);
     });
 
-    socket.on('sendMessage', async (payload) => {
+    socket.on("sendMessage", async (payload) => {
       const { roomId, sender, content, attachments = [] } = payload;
 
       if (!roomId || !sender) return;
@@ -166,74 +174,129 @@ export const initSocket = (server: any) => {
         const senderSocketId = userSocketMap.get(sender);
 
         if (receiverSocketId) {
-          io.to(receiverSocketId).emit('receiveMessage', message);
+          io.to(receiverSocketId).emit("receiveMessage", message);
         }
 
         if (senderSocketId) {
-          io.to(senderSocketId).emit('receiveMessage', message);
+          io.to(senderSocketId).emit("receiveMessage", message);
         }
       } catch (err) {
-        console.error('❌ 메시지 저장 실패:', err);
+        console.error("❌ 메시지 저장 실패:", err);
       }
     });
 
-    socket.on('markAsRead', async ({ roomId, email }) => {
+    socket.on("markAsRead", async ({ roomId, email }) => {
       await DMMessage.updateMany(
         { roomId, isReadBy: { $ne: email } },
         { $push: { isReadBy: email } }
       );
     });
 
-    socket.on('deleteMessage', async ({ messageId, email }) => {
+    socket.on("deleteMessage", async ({ messageId, email }) => {
       await DMMessage.findByIdAndUpdate(messageId, {
         $addToSet: { deletedBy: email },
       });
     });
 
     // ✅ 본인 DM 리스트 갱신 요청 시
-    socket.on('refreshDmList', () => {
+    socket.on("refreshDmList", () => {
       const email = socketToEmail.get(socket.id);
       if (!email) return;
 
       const socketId = userSocketMap.get(email);
       if (socketId) {
-        io.to(socketId).emit('refreshDmList');
+        io.to(socketId).emit("refreshDmList");
       }
     });
 
-    socket.on('call:request', async ({ to, roomId, from, nickname, tag, profileImage, color }) => {
-    const receiverSocketId = userSocketMap.get(to);
+    socket.on(
+      "call:request",
+      async ({ to, roomId, from, nickname, tag, profileImage, color }) => {
+        const receiverSocketId = userSocketMap.get(to);
+        const callerSocketId = userSocketMap.get(from);
 
-    // 🔹 Redis에 통화 상태 저장
-    await startCallSession(roomId, from, to, false, true);
-    start3MinTimeout(roomId, from, to);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit('call:incoming', {
-        from,
-        roomId,
-        nickname,
-        tag,
-        profileImage,
-        color,
-      });
-      console.log(`📞 ${from} → ${to} 통화 요청`);
-    } else {
-      console.log(`❌ 수신자 ${to} 소켓 없음`);
-    }
-  });
+        // 🔍 현재 from이 참여 중인 모든 통화방 종료
+        const keys = await redis.keys("call_room:*");
 
-    socket.on('call:accept', ({ to, roomId }) => {
+        for (const key of keys) {
+          const session = await redis.hgetall(key);
+          if (!session) continue;
+
+          const { caller, callee, callerEnded, calleeEnded } = session;
+          const sessionRoomId = key.replace("call_room:", "");
+
+          const isCallerInCall = caller === from && callerEnded !== "true";
+          const isCalleeInCall = callee === from && calleeEnded !== "true";
+
+          if (isCallerInCall || isCalleeInCall) {
+            console.log(`☎️ 기존 통화(${sessionRoomId}) 종료 중: ${from}`);
+
+            await endCallForUser(sessionRoomId, from);
+
+            const peerEmail = caller === from ? callee : caller;
+            const peerSocket = userSocketMap.get(peerEmail);
+            if (peerSocket) {
+              io.to(peerSocket).emit("call:clear");
+            }
+
+            if (callerSocketId) {
+              io.to(callerSocketId).emit("call:re-call");
+            }
+
+            const oneEnded = callerEnded === "true" || calleeEnded === "true";
+            const bothEnded = callerEnded === "true" && calleeEnded === "true";
+
+            if (!bothEnded && oneEnded) {
+              start3MinTimeout(sessionRoomId, caller, callee);
+            } else {
+              clearTimeoutForRoom(sessionRoomId);
+              await redis.del(key);
+            }
+          }
+        }
+
+        // 🔒 상대방이 통화 중이면 새 통화 차단
+        const isBusy = await isUserInCall(to);
+        if (isBusy) {
+          if (callerSocketId) {
+            io.to(callerSocketId).emit("call:busy");
+          }
+          console.log(`🚫 통화 차단: ${to}는 현재 통화 중`);
+          return;
+        }
+
+        // ✅ 새 통화 시작
+        await startCallSession(roomId, from, to, false, true);
+        start3MinTimeout(roomId, from, to);
+
+        if (receiverSocketId) {
+          io.to(receiverSocketId).emit("call:incoming", {
+            from,
+            roomId,
+            nickname,
+            tag,
+            profileImage,
+            color,
+          });
+          console.log(`📞 ${from} → ${to} 통화 요청`);
+        } else {
+          console.log(`❌ 수신자 ${to} 소켓 없음`);
+        }
+      }
+    );
+
+    socket.on("call:accept", ({ to, roomId }) => {
       const callerSocketId = userSocketMap.get(to);
       clearTimeoutForRoom(roomId);
       if (callerSocketId) {
-        io.to(callerSocketId).emit('call:peer-connected');
+        io.to(callerSocketId).emit("call:peer-connected");
       }
-      socket.emit('call:peer-connected');
+      socket.emit("call:peer-connected");
       acceptCall(roomId);
       console.log(`✅ 통화 수락됨: ${to}와 연결됨`);
     });
 
-    socket.on('call:end', async ({ roomId, to }) => {
+    socket.on("call:end", async ({ roomId, to }) => {
       const from = socketToEmail.get(socket.id);
       if (!from) return;
 
@@ -244,22 +307,22 @@ export const initSocket = (server: any) => {
       if (session) {
         const { caller, callee, callerEnded, calleeEnded } = session;
 
-        if (callerEnded === 'true' && calleeEnded === 'true') {
+        if (callerEnded === "true" && calleeEnded === "true") {
           clearTimeoutForRoom(roomId); // 완전 종료
-        } else if (callerEnded === 'true' || calleeEnded === 'true') {
+        } else if (callerEnded === "true" || calleeEnded === "true") {
           start3MinTimeout(roomId, caller, callee); // 3분 타이머 시작
         }
       }
 
       const receiverSocketId = userSocketMap.get(to);
       if (receiverSocketId) {
-        io.to(receiverSocketId).emit('call:end');
+        io.to(receiverSocketId).emit("call:end");
       }
 
       console.log(`📴 통화 종료됨: ${from} → ${to}`);
     });
-    
-    socket.on('call:resume', async ({ roomId }) => {
+
+    socket.on("call:resume", async ({ roomId }) => {
       const email = socketToEmail.get(socket.id);
       if (!email) return;
 
@@ -268,16 +331,16 @@ export const initSocket = (server: any) => {
 
       const isCaller = session.caller === email;
 
-      socket.emit('call:resume-success', {
+      socket.emit("call:resume-success", {
         roomId,
         isCaller,
         startedAt: Number(session.startedAt),
-        callerEnded: session.callerEnded === 'true',
-        calleeEnded: session.calleeEnded === 'true',
+        callerEnded: session.callerEnded === "true",
+        calleeEnded: session.calleeEnded === "true",
       });
     });
 
-    socket.on('call:reconn', async ({ roomId, from }) => {
+    socket.on("call:reconn", async ({ roomId, from }) => {
       const sess = await getCallSession(roomId);
       if (!sess) return;
 
@@ -285,32 +348,31 @@ export const initSocket = (server: any) => {
 
       const session = await reconnCall(roomId, isCaller);
 
-      if(!session) return;
+      if (!session) return;
       clearTimeoutForRoom(roomId);
-      socket.emit('call:reconn-success', {
+      socket.emit("call:reconn-success", {
         roomId,
         isCaller,
         startedAt: Number(session.startedAt),
-        callerEnded: session.callerEnded === 'true',
-        calleeEnded: session.calleeEnded === 'true',
+        callerEnded: session.callerEnded === "true",
+        calleeEnded: session.calleeEnded === "true",
       });
 
       const peerEmail = isCaller ? session.callee : session.caller;
       const peerSocketId = userSocketMap.get(peerEmail);
 
       if (peerSocketId) {
-        io.to(peerSocketId).emit('call:reconn-success', {
+        io.to(peerSocketId).emit("call:reconn-success", {
           roomId,
           isCaller: !isCaller,
           startedAt: Number(session.startedAt),
-          callerEnded: session.callerEnded === 'true',
-          calleeEnded: session.calleeEnded === 'true',
+          callerEnded: session.callerEnded === "true",
+          calleeEnded: session.calleeEnded === "true",
         });
       }
     });
 
-
-    socket.on('call:clear', async ({ roomId, to }) => {
+    socket.on("call:clear", async ({ roomId, to }) => {
       const from = socketToEmail.get(socket.id);
       if (!from) return;
 
@@ -319,12 +381,12 @@ export const initSocket = (server: any) => {
 
       const receiverSocketId = userSocketMap.get(to);
       if (receiverSocketId) {
-        io.to(receiverSocketId).emit('call:clear');
+        io.to(receiverSocketId).emit("call:clear");
         console.log(`📴 통화 거절 알림 전송: ${from} → ${to}`);
       }
     });
 
-    socket.on('logout', async (email: string) => {
+    socket.on("logout", async (email: string) => {
       const existingSocketId = userSocketMap.get(email);
 
       if (existingSocketId === socket.id) {
@@ -333,31 +395,38 @@ export const initSocket = (server: any) => {
         userSocketMap.delete(email);
         socketToEmail.delete(socket.id);
 
-        await setUserStatus(email, 'offline');
+        await setUserStatus(email, "offline");
 
         const currentStatus = await getUserStatus(email);
-        io.emit('status-update', { email, status: currentStatus });
+        io.emit("status-update", { email, status: currentStatus });
 
         console.log(`🟥 로그아웃 처리됨: ${email}`);
       }
     });
 
-    socket.on('disconnect', async () => {
-      console.log('🔴 소켓 해제됨:', socket.id);
+    socket.on("disconnect", async () => {
+      console.log("🔴 소켓 해제됨:", socket.id);
 
       const email = socketToEmail.get(socket.id);
-      
-      if (email) {
-        await handleCallCleanup(email); //통화 종료
 
-        userSocketMap.delete(email);
-        socketToEmail.delete(socket.id);
+      setTimeout(async () => {
+        if (!userSocketMap.has(email!)) {
+          if (email) {
+            await handleCallCleanup(email); //통화 종료
 
-        await setUserStatus(email, 'offline');
+            userSocketMap.delete(email);
+            socketToEmail.delete(socket.id);
 
-        const currentStatus = await getUserStatus(email);
-        io.emit('status-update', { email, status: currentStatus });
-      }
+            await setUserStatus(email, "offline");
+
+            const currentStatus = await getUserStatus(email);
+            io.emit("status-update", { email, status: currentStatus });
+          }
+          // 실제 오프라인 처리
+        } else {
+          console.log(`🔁 ${email} 새로고침 감지됨`);
+        }
+      }, 3000);
     });
   });
 
@@ -366,6 +435,6 @@ export const initSocket = (server: any) => {
 };
 
 export const getIO = () => {
-  if (!ioInstance) throw new Error('Socket.io not initialized');
+  if (!ioInstance) throw new Error("Socket.io not initialized");
   return ioInstance;
 };

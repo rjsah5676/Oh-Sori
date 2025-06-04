@@ -1,4 +1,4 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface CallState {
   isCaller: boolean;
@@ -28,21 +28,32 @@ const initialState: CallState = {
 };
 
 export const callSlice = createSlice({
-  name: 'call',
+  name: "call",
   initialState,
   reducers: {
     clearCall: (state) => {
-      state.calleeEnded = true;
+      state.isCaller = false;
+      state.isPeerConnected = false;
+      state.startedAt = 0;
+      state.roomId = null;
       state.callerEnded = true;
+      state.calleeEnded = true;
+      state.incomingCallFrom = null;
     },
-    startCall: (state, action: PayloadAction<{ isCaller: boolean; roomId: string }>) => {
+    startCall: (
+      state,
+      action: PayloadAction<{ isCaller: boolean; roomId: string }>
+    ) => {
       state.isCaller = action.payload.isCaller;
       state.roomId = action.payload.roomId;
       state.startedAt = Date.now();
       state.callerEnded = false;
       state.calleeEnded = true;
     },
-    acceptCall: (state, action: PayloadAction<{ isCaller: boolean; roomId: string }>) => {
+    acceptCall: (
+      state,
+      action: PayloadAction<{ isCaller: boolean; roomId: string }>
+    ) => {
       state.isCaller = action.payload.isCaller;
       state.roomId = action.payload.roomId;
       state.startedAt = Date.now();
@@ -50,43 +61,43 @@ export const callSlice = createSlice({
       state.calleeEnded = false;
     },
     startReCall: (
-        state,
-        action: PayloadAction<{
-            isCaller: boolean;
-            roomId: string;
-            startedAt: number;
-            callerEnded: boolean;
-            calleeEnded: boolean;
-        }>
-        ) => {
-        state.isCaller = action.payload.isCaller;
-        state.roomId = action.payload.roomId;
-        state.startedAt = action.payload.startedAt;
-        state.callerEnded = action.payload.callerEnded;
-        state.calleeEnded = action.payload.calleeEnded;
-        },
+      state,
+      action: PayloadAction<{
+        isCaller: boolean;
+        roomId: string;
+        startedAt: number;
+        callerEnded: boolean;
+        calleeEnded: boolean;
+      }>
+    ) => {
+      state.isCaller = action.payload.isCaller;
+      state.roomId = action.payload.roomId;
+      state.startedAt = action.payload.startedAt;
+      state.callerEnded = action.payload.callerEnded;
+      state.calleeEnded = action.payload.calleeEnded;
+    },
     endCall: (state) => {
-        if (state.isCaller) {
-            state.callerEnded = true;
-        } else {
-            state.calleeEnded = true;
-        }
-        },
-        peerEndedCall: (state) => {
-        if (state.isCaller) {
-            state.calleeEnded = true;
-        } else {
-            state.callerEnded = true;
-        }
-        },
+      if (state.isCaller) {
+        state.callerEnded = true;
+      } else {
+        state.calleeEnded = true;
+      }
+    },
+    peerEndedCall: (state) => {
+      if (state.isCaller) {
+        state.calleeEnded = true;
+      } else {
+        state.callerEnded = true;
+      }
+    },
     finalizeCall: (state) => {
-        state.isCaller = false;
-        state.isPeerConnected = false;
-        state.startedAt = 0;
-        state.roomId = null;
-        state.callerEnded  = false;
-        state.calleeEnded  = false;
-        state.incomingCallFrom = null;
+      state.isCaller = false;
+      state.isPeerConnected = false;
+      state.startedAt = 0;
+      state.roomId = null;
+      state.callerEnded = false;
+      state.calleeEnded = false;
+      state.incomingCallFrom = null;
     },
     peerConnected: (state) => {
       state.isPeerConnected = true;
@@ -96,17 +107,17 @@ export const callSlice = createSlice({
       state.isPeerConnected = false;
     },
     setIncomingCall: (
-        state,
-        action: PayloadAction<{
-            from: string;
-            roomId: string;
-            nickname: string;
-            tag: string;
-            profileImage?: string;
-            color?: string;
-        }>
-        ) => {
-        state.incomingCallFrom = action.payload;
+      state,
+      action: PayloadAction<{
+        from: string;
+        roomId: string;
+        nickname: string;
+        tag: string;
+        profileImage?: string;
+        color?: string;
+      }>
+    ) => {
+      state.incomingCallFrom = action.payload;
     },
     clearIncomingCall: (state) => {
       state.incomingCallFrom = null;
@@ -114,5 +125,17 @@ export const callSlice = createSlice({
   },
 });
 
-export const { clearCall, startReCall,startCall,acceptCall, endCall, peerConnected, peerDisconnected, setIncomingCall, clearIncomingCall,peerEndedCall,finalizeCall } = callSlice.actions;
+export const {
+  clearCall,
+  startReCall,
+  startCall,
+  acceptCall,
+  endCall,
+  peerConnected,
+  peerDisconnected,
+  setIncomingCall,
+  clearIncomingCall,
+  peerEndedCall,
+  finalizeCall,
+} = callSlice.actions;
 export default callSlice.reducer;

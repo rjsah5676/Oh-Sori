@@ -1,8 +1,14 @@
-import redis from '../utils/redis';
+import redis from "../utils/redis";
 
 export const getCallRoomKey = (roomId: string) => `call_room:${roomId}`;
 
-export async function startCallSession(roomId: string, caller: string, callee: string, callerEnded: boolean, calleeEnded: boolean) {
+export async function startCallSession(
+  roomId: string,
+  caller: string,
+  callee: string,
+  callerEnded: boolean,
+  calleeEnded: boolean
+) {
   await redis.hmset(getCallRoomKey(roomId), {
     caller,
     callee,
@@ -11,7 +17,6 @@ export async function startCallSession(roomId: string, caller: string, callee: s
     calleeEnded,
   });
 }
-
 
 export async function getCallSession(roomId: string) {
   const key = getCallRoomKey(roomId);
@@ -23,14 +28,15 @@ export async function acceptCall(roomId: string) {
   const data = await getCallSession(roomId);
   if (!data) return;
 
-  await redis.hset(getCallRoomKey(roomId), 'calleeEnded', 'false');
+  await redis.hset(getCallRoomKey(roomId), "calleeEnded", "false");
 }
 
 export async function reconnCall(roomId: string, isCaller: boolean) {
   const data = await getCallSession(roomId);
   if (!data) return;
-  if(isCaller) await redis.hset(getCallRoomKey(roomId), 'callerEnded', 'false');
-  else await redis.hset(getCallRoomKey(roomId), 'calleeEnded', 'false');
+  if (isCaller)
+    await redis.hset(getCallRoomKey(roomId), "callerEnded", "false");
+  else await redis.hset(getCallRoomKey(roomId), "calleeEnded", "false");
   const updated = await getCallSession(roomId);
   return updated;
 }
@@ -39,13 +45,18 @@ export async function endCallForUser(roomId: string, userEmail: string) {
   const data = await getCallSession(roomId);
   if (!data) return;
 
-  const key = data.caller === userEmail ? 'callerEnded' : data.callee === userEmail ? 'calleeEnded' : null;
+  const key =
+    data.caller === userEmail
+      ? "callerEnded"
+      : data.callee === userEmail
+      ? "calleeEnded"
+      : null;
   if (!key) return;
 
-  await redis.hset(getCallRoomKey(roomId), key, 'true');
+  await redis.hset(getCallRoomKey(roomId), key, "true");
 
   const updated = await redis.hgetall(getCallRoomKey(roomId));
-  if (updated.callerEnded === 'true' && updated.calleeEnded === 'true') {
+  if (updated.callerEnded === "true" && updated.calleeEnded === "true") {
     await redis.del(getCallRoomKey(roomId));
   }
 }
@@ -55,7 +66,25 @@ export async function endCallForUser(roomId: string, userEmail: string) {
  */
 export function isUserCaller(session: any, email: string): boolean {
   if (!session || !email) return false;
-  if (session.caller === email) return session.callerIsCaller === 'true';
-  if (session.callee === email) return session.calleeIsCaller === 'true';
+  if (session.caller === email) return session.callerIsCaller === "true";
+  if (session.callee === email) return session.calleeIsCaller === "true";
   return false;
 }
+
+export const isUserInCall = async (email: string): Promise<boolean> => {
+  const keys = await redis.keys("call_room:*");
+
+  for (const key of keys) {
+    const session = await redis.hgetall(key);
+    if (!session) continue;
+
+    const { caller, callee, callerEnded, calleeEnded } = session;
+
+    const isCallerActive = caller === email && callerEnded !== "true";
+    const isCalleeActive = callee === email && calleeEnded !== "true";
+
+    if (isCallerActive || isCalleeActive) return true;
+  }
+
+  return false;
+};

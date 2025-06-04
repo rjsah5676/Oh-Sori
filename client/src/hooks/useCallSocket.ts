@@ -19,12 +19,7 @@ import {
   createPeerConnection,
   getPeer,
 } from "@/lib/webrtc";
-import {
-  queuePendingCandidate,
-  flushPendingCandidates,
-} from "@/lib/webrtcPendingCandidates";
 import useModalConfirm from "./useModalConfirm";
-import { setMode } from "@/store/uiSlice";
 
 export default function useCallSocket() {
   const { alert } = useModalConfirm();
@@ -56,8 +51,6 @@ export default function useCallSocket() {
       stream.getTracks().forEach((track) => {
         peer.addTrack(track, stream);
       });
-
-      await flushPendingCandidates(peer);
     };
 
     socket.on("call:resume-success", async (data) => {
@@ -96,9 +89,13 @@ export default function useCallSocket() {
     });
 
     socket.on("call:reconn-success", async (data) => {
-      if (data?.roomId) {
-        dispatch(startReCall(data));
-        await setupPeer();
+      const { roomId, rejoiner } = data;
+      if (!roomId) return;
+
+      dispatch(startReCall(data));
+
+      if (myEmail === rejoiner) {
+        await setupPeer(); // ✅ 재참여자만 PeerConnection 다시 생성
         playSound("/images/effect/join.ogg");
       }
     });
@@ -123,13 +120,15 @@ export default function useCallSocket() {
       clearLocalStream();
     });
 
-    // ✅ ICE 후보 수신
+    // ✅ ICE 후보 즉시 처리
     socket.on("webrtc:ice-candidate", async ({ candidate }) => {
       const peer = getPeer();
-      if (peer?.remoteDescription?.type) {
+      if (!peer) return;
+
+      try {
         await peer.addIceCandidate(new RTCIceCandidate(candidate));
-      } else {
-        queuePendingCandidate(candidate);
+      } catch (err) {
+        console.warn("❌ ICE 후보 추가 실패:", err);
       }
     });
 

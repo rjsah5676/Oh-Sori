@@ -9,14 +9,12 @@ import { setSelectedFriend, setMode } from "@/store/uiSlice";
 import UserAvatar from "@/components/UserAvatar";
 import { Phone, PhoneOff } from "lucide-react";
 import { getStoredOffer, clearStoredOffer } from "@/lib/webrtcOfferStore";
-import { createPeerConnection, getLocalStream } from "@/lib/webrtc";
-import { flushPendingCandidates } from "@/hooks/useWebRTCConnection";
+import { createPeerConnection, getLocalStream, setPeer } from "@/lib/webrtc";
 
 export default function CallIncomingToast() {
   const call = useSelector((state: RootState) => state.call);
   const dispatch = useDispatch();
   const socket = getSocket();
-
   const incoming = call.incomingCallFrom;
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -28,13 +26,6 @@ export default function CallIncomingToast() {
     audioRef.current = audio;
 
     audio.play().catch((e) => console.warn("Audio play error:", e));
-
-    const timeout = setTimeout(() => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-    }, 60_000);
 
     return () => {
       if (audioRef.current) {
@@ -49,76 +40,86 @@ export default function CallIncomingToast() {
     audio.play().catch((e) => console.warn("Audio play error:", e));
   };
 
-  if (!incoming) return null;
   const handleAccept = async () => {
-    playSound("/images/effect/join.ogg");
-    socket.emit("call:accept", { to: incoming.from, roomId: incoming.roomId });
-    dispatch(acceptCall({ isCaller: false, roomId: incoming.roomId }));
-    dispatch(clearIncomingCall());
-
-    dispatch(
-      setSelectedFriend({
-        nickname: incoming.nickname ?? "",
-        tag: incoming.tag ?? "",
-        email: incoming.from,
-        profileImage: incoming.profileImage ?? "",
-        color: incoming.color ?? "",
+    if (!incoming) return;
+    try {
+      playSound("/images/effect/join.ogg");
+      socket.emit("call:accept", {
+        to: incoming.from,
         roomId: incoming.roomId,
-      })
-    );
-    dispatch(setMode("dm"));
-    socket.emit("joinRoom", incoming.roomId);
+      });
+      dispatch(acceptCall({ isCaller: false, roomId: incoming.roomId }));
+      dispatch(clearIncomingCall());
 
-    // ✅ WebRTC 연결 시작
-    const saved = getStoredOffer();
-    if (!saved) {
-      console.warn("❌ 저장된 offer 없음");
-      return;
-    }
-
-    const peer = createPeerConnection((remoteStream) => {
-      const audio = document.getElementById("remoteAudio") as HTMLAudioElement;
-      if (audio) audio.srcObject = remoteStream;
-    });
-
-    const localStream = await getLocalStream();
-    const existingSenders = peer.getSenders();
-    localStream.getTracks().forEach((track) => {
-      const alreadyAdded = existingSenders.some(
-        (sender) => sender.track === track
+      dispatch(
+        setSelectedFriend({
+          nickname: incoming.nickname ?? "",
+          tag: incoming.tag ?? "",
+          email: incoming.from,
+          profileImage: incoming.profileImage ?? "",
+          color: incoming.color ?? "",
+          roomId: incoming.roomId,
+        })
       );
-      if (!alreadyAdded) {
+      dispatch(setMode("dm"));
+      socket.emit("joinRoom", incoming.roomId);
+
+      const saved = getStoredOffer();
+      if (!saved) {
+        console.warn("❌ 저장된 offer 없음");
+        return;
+      }
+
+      const peer = createPeerConnection((remoteStream) => {
+        const audio = document.getElementById(
+          "remoteAudio"
+        ) as HTMLAudioElement;
+        if (audio) {
+          audio.srcObject = remoteStream;
+          audio.autoplay = true;
+        }
+      });
+
+      setPeer(peer);
+
+      const localStream = await getLocalStream();
+      localStream.getTracks().forEach((track) => {
         peer.addTrack(track, localStream);
-      }
-    });
+      });
 
-    await peer.setRemoteDescription(new RTCSessionDescription(saved.offer));
-    flushPendingCandidates();
-    const answer = await peer.createAnswer();
-    await peer.setLocalDescription(answer);
+      await peer.setRemoteDescription(new RTCSessionDescription(saved.offer));
 
-    socket.emit("webrtc:answer", {
-      to: saved.from,
-      answer,
-    });
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
 
-    peer.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit("webrtc:ice-candidate", {
-          to: saved.from,
-          candidate: event.candidate,
-        });
-      }
-    };
+      socket.emit("webrtc:answer", {
+        to: saved.from,
+        answer,
+      });
 
-    clearStoredOffer(); // 연결 후 offer 정리
+      peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          socket.emit("webrtc:ice-candidate", {
+            to: saved.from,
+            candidate: event.candidate,
+          });
+        }
+      };
+
+      clearStoredOffer();
+    } catch (err) {
+      console.error("❌ 통화 수락 처리 중 에러 발생:", err);
+    }
   };
 
   const handleDecline = () => {
+    if (!incoming) return;
     socket.emit("call:clear", { roomId: incoming.roomId, to: incoming.from });
     dispatch(clearIncomingCall());
     dispatch(clearCall());
   };
+
+  if (!incoming) return null;
 
   return (
     <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none">

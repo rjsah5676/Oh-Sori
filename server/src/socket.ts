@@ -346,6 +346,7 @@ export const initSocket = (server: any) => {
       socket.emit("call:reconn-success", {
         roomId,
         isCaller,
+        rejoiner: from, // ✅ 추가!
         startedAt: Number(session.startedAt),
         callerEnded: session.callerEnded === "true",
         calleeEnded: session.calleeEnded === "true",
@@ -358,6 +359,7 @@ export const initSocket = (server: any) => {
         io.to(peerSocketId).emit("call:reconn-success", {
           roomId,
           isCaller: !isCaller,
+          rejoiner: from, // ✅ 추가!
           startedAt: Number(session.startedAt),
           callerEnded: session.callerEnded === "true",
           calleeEnded: session.calleeEnded === "true",
@@ -392,14 +394,20 @@ export const initSocket = (server: any) => {
     socket.on("webrtc:answer", ({ to, answer }) => {
       const callerSocketId = userSocketMap.get(to);
       if (callerSocketId) {
-        io.to(callerSocketId).emit("webrtc:answer", { answer });
+        io.to(callerSocketId).emit("webrtc:answer", {
+          from: socketToEmail.get(socket.id), // ✅ 추가
+          answer,
+        });
       }
     });
 
     socket.on("webrtc:ice-candidate", ({ to, candidate }) => {
       const peerSocketId = userSocketMap.get(to);
       if (peerSocketId) {
-        io.to(peerSocketId).emit("webrtc:ice-candidate", { candidate });
+        io.to(peerSocketId).emit("webrtc:ice-candidate", {
+          from: socketToEmail.get(socket.id), // ✅ 추가
+          candidate,
+        });
       }
     });
 

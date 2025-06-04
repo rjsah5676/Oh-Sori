@@ -93,6 +93,12 @@ export default function useCallSocket() {
       stopRingback();
     });
 
+    socket.on("call:re-clear", () => {
+      dispatch(clearCall());
+      stopRingback();
+      playSound("/images/effect/exit.ogg");
+    });
+
     socket.on("call:busy", () => {
       alert("상대방이 현재 통화 중입니다.");
       dispatch(clearCall());
@@ -107,6 +113,7 @@ export default function useCallSocket() {
       socket.off("call:end");
       socket.off("call:reconn-success");
       socket.off("call:clear");
+      socket.off("call:re-clear");
       socket.off("call:busy");
       socket.off("call:re-call");
     };

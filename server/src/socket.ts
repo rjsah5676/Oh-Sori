@@ -215,7 +215,7 @@ export const initSocket = (server: any) => {
         const receiverSocketId = userSocketMap.get(to);
         const callerSocketId = userSocketMap.get(from);
 
-        // 🔍 현재 from이 참여 중인 모든 통화방 종료
+        // 🔍 from이 포함된 모든 통화방 강제 종료
         const keys = await redis.keys("call_room:*");
 
         for (const key of keys) {
@@ -225,18 +225,19 @@ export const initSocket = (server: any) => {
           const { caller, callee, callerEnded, calleeEnded } = session;
           const sessionRoomId = key.replace("call_room:", "");
 
-          const isCallerInCall = caller === from && callerEnded !== "true";
-          const isCalleeInCall = callee === from && calleeEnded !== "true";
+          const isCaller = caller === from;
+          const isCallee = callee === from;
 
-          if (isCallerInCall || isCalleeInCall) {
+          if (isCaller || isCallee) {
             console.log(`☎️ 기존 통화(${sessionRoomId}) 종료 중: ${from}`);
 
             await endCallForUser(sessionRoomId, from);
+            await endCallForUser(sessionRoomId, to);
 
-            const peerEmail = caller === from ? callee : caller;
+            const peerEmail = isCaller ? callee : caller;
             const peerSocket = userSocketMap.get(peerEmail);
             if (peerSocket) {
-              io.to(peerSocket).emit("call:clear");
+              io.to(peerSocket).emit("call:re-clear");
             }
 
             if (callerSocketId) {
@@ -265,7 +266,6 @@ export const initSocket = (server: any) => {
           return;
         }
 
-        // ✅ 새 통화 시작
         await startCallSession(roomId, from, to, false, true);
         start3MinTimeout(roomId, from, to);
 

@@ -6,6 +6,7 @@ import {
   createPeerConnection,
   getLocalStream,
   getPeer,
+  setPeer,
 } from "@/lib/webrtc";
 
 export const startVoiceCall = async ({
@@ -41,6 +42,8 @@ export const startVoiceCall = async ({
       ) as HTMLAudioElement;
       if (audioElem) audioElem.srcObject = remoteStream;
     });
+
+    setPeer(peer); // ✅ 반드시 저장
 
     const localStream = await getLocalStream();
     const existingSenders = peer.getSenders();
@@ -107,7 +110,15 @@ export const endVoiceCall = ({
     roomId,
     to: targetEmail,
   });
+
+  // ✅ RTC 연결 해제
+  const peer = getPeer();
+  if (peer) {
+    peer.close();
+    setPeer(null);
+  }
+
   clearLocalStream();
   dispatch(endCall());
-  stopRingback(); // 여기도 직접 호출
+  stopRingback();
 };

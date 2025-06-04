@@ -1,6 +1,12 @@
 import { startCall, endCall } from "@/store/callSlice";
 import { AppDispatch } from "@/store/store";
 import { playRingback, stopRingback } from "@/lib/ringbackManager";
+import {
+  clearLocalStream,
+  createPeerConnection,
+  getLocalStream,
+  getPeer,
+} from "@/lib/webrtc";
 
 export const startVoiceCall = async ({
   socket,
@@ -23,10 +29,53 @@ export const startVoiceCall = async ({
   profileImage?: string;
   color: string;
 }) => {
-  stopRingback(); // 혹시 이전 연결음 남아있으면 정리
+  stopRingback();
+
   try {
     playRingback();
 
+    // ✅ RTC 연결 시작
+    const peer = createPeerConnection((remoteStream) => {
+      const audioElem = document.getElementById(
+        "remoteAudio"
+      ) as HTMLAudioElement;
+      if (audioElem) audioElem.srcObject = remoteStream;
+    });
+
+    const localStream = await getLocalStream();
+    const existingSenders = peer.getSenders();
+    localStream.getTracks().forEach((track) => {
+      const alreadyAdded = existingSenders.some(
+        (sender) => sender.track === track
+      );
+      if (!alreadyAdded) {
+        peer.addTrack(track, localStream);
+      }
+    });
+
+    const offer = await peer.createOffer();
+    await peer.setLocalDescription(offer);
+
+    // ✅ offer 전송
+    socket.emit("webrtc:offer", {
+      to: target,
+      offer,
+    });
+
+    // ✅ ICE 후보 전송
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("webrtc:ice-candidate", {
+          to: target,
+          candidate: event.candidate,
+        });
+      }
+    };
+
+    // ✅ 상태 등록
+    dispatch(startCall({ isCaller: true, roomId }));
+
+    // ✅ 통화 요청 알림
     socket.emit("call:request", {
       to: target,
       roomId,
@@ -36,10 +85,8 @@ export const startVoiceCall = async ({
       profileImage,
       color,
     });
-
-    dispatch(startCall({ isCaller: true, roomId }));
   } catch (err) {
-    console.warn("[startVoiceCall] ❌ 연결음 재생 실패", err);
+    console.warn("[startVoiceCall] ❌ 오류 발생", err);
   }
 };
 
@@ -60,7 +107,7 @@ export const endVoiceCall = ({
     roomId,
     to: targetEmail,
   });
-
+  clearLocalStream();
   dispatch(endCall());
   stopRingback(); // 여기도 직접 호출
 };

@@ -11,6 +11,7 @@ import { RootState } from "@/store/store";
 import { setMode } from "@/store/uiSlice";
 import { startVoiceCall, endVoiceCall } from "@/lib/callUtils";
 import { setSelectedFriend } from "@/store/uiSlice";
+import useModalConfirm from "@/hooks/useModalConfirm";
 
 interface FriendWithRoom {
   nickname: string;
@@ -45,6 +46,7 @@ export default function RightPanel({
   );
   const mode = useSelector((state: RootState) => state.ui.mode);
   const call = useSelector((state: RootState) => state.call);
+  const { alert, confirm } = useModalConfirm();
 
   const [pendingList, setPendingList] = useState<
     {
@@ -242,7 +244,7 @@ export default function RightPanel({
   };
 
   const handleDeleteFriend = async (email: string) => {
-    const confirmDelete = confirm("정말 삭제하시겠어요?");
+    const confirmDelete = await confirm("정말 삭제하시겠어요?");
     if (!confirmDelete) return;
     try {
       const res = await fetch(

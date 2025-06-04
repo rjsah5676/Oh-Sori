@@ -11,6 +11,7 @@ import { Trash2, Phone, Monitor, PhoneOff } from "lucide-react";
 import { startCall } from "@/store/callSlice";
 import { endCall, clearIncomingCall, finalizeCall } from "@/store/callSlice";
 import { startVoiceCall, endVoiceCall } from "@/lib/callUtils";
+import { showModal } from "@/store/modalSlice";
 
 interface Message {
   _id: string;
@@ -227,7 +228,7 @@ export default function DMRoomPage() {
         if (!res.ok) throw new Error(data.message);
         attachments = data.attachments;
       } catch (err) {
-        alert("파일 업로드 실패");
+        dispatch(showModal({ type: "alert", message: "파일 업로드 실패" }));
         console.error(err);
         return;
       }
@@ -587,7 +588,9 @@ export default function DMRoomPage() {
                   {/* 화면 공유 버튼 */}
                   <button
                     onClick={() =>
-                      alert("화면 공유 기능은 아직 구현되지 않았습니다.")
+                      dispatch(
+                        showModal({ type: "alert", message: "화면공유 미구현" })
+                      )
                     }
                     className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition"
                   >

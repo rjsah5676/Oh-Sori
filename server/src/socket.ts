@@ -244,15 +244,8 @@ export const initSocket = (server: any) => {
               io.to(callerSocketId).emit("call:re-call");
             }
 
-            const oneEnded = callerEnded === "true" || calleeEnded === "true";
-            const bothEnded = callerEnded === "true" && calleeEnded === "true";
-
-            if (!bothEnded && oneEnded) {
-              start3MinTimeout(sessionRoomId, caller, callee);
-            } else {
-              clearTimeoutForRoom(sessionRoomId);
-              await redis.del(key);
-            }
+            clearTimeoutForRoom(sessionRoomId);
+            await redis.del(key);
           }
         }
 
@@ -383,6 +376,30 @@ export const initSocket = (server: any) => {
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("call:clear");
         console.log(`📴 통화 거절 알림 전송: ${from} → ${to}`);
+      }
+    });
+
+    socket.on("webrtc:offer", ({ to, offer }) => {
+      const receiverSocketId = userSocketMap.get(to);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("webrtc:offer", {
+          from: socketToEmail.get(socket.id),
+          offer,
+        });
+      }
+    });
+
+    socket.on("webrtc:answer", ({ to, answer }) => {
+      const callerSocketId = userSocketMap.get(to);
+      if (callerSocketId) {
+        io.to(callerSocketId).emit("webrtc:answer", { answer });
+      }
+    });
+
+    socket.on("webrtc:ice-candidate", ({ to, candidate }) => {
+      const peerSocketId = userSocketMap.get(to);
+      if (peerSocketId) {
+        io.to(peerSocketId).emit("webrtc:ice-candidate", { candidate });
       }
     });
 

@@ -12,6 +12,7 @@ import { getSocket } from "@/lib/socket";
 import UserAvatar from "@/components/UserAvatar";
 import { setStatus } from "@/store/userStatusSlice";
 import { setSelectedFriend, setMode } from "@/store/uiSlice";
+import useModalConfirm from "@/hooks/useModalConfirm";
 
 interface FriendWithRoom {
   nickname: string;
@@ -60,6 +61,8 @@ export default function MainRedirectPage() {
   const friendStatuses = useSelector(
     (state: RootState) => state.userStatus.statuses
   );
+
+  const { alert, confirm } = useModalConfirm();
 
   const fetchPendingCount = async () => {
     try {

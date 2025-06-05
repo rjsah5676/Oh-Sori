@@ -16,6 +16,8 @@ export default function useWebRTCConnection() {
 
     socket.on("webrtc:answer", async ({ answer }) => {
       const peer = getPeer();
+      console.log(peer);
+      console.log("!!");
       if (!peer) return;
 
       if (peer.signalingState === "have-local-offer") {

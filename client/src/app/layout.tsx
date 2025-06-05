@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import ThemeToggle from "@/components/ThemeToggle";
-import ThemeScript from "@/components/ThemeScript"; 
-import ReduxProvider from '@/store/provider';
-import InitAuthLoader from '@/store/InitAuthLoader';
+import ThemeScript from "@/components/ThemeScript";
+import ReduxProvider from "@/store/provider";
+import InitAuthLoader from "@/store/InitAuthLoader";
+import CallSocketHandler from "@/components/dm/call/CallSocketHandler";
+import CallIncomingToast from "@/components/dm/call/CallIncomingToast";
+import ModalProvider from "@/components/ModalProvider";
+import WebRTCConnectionHandler from "@/components/dm/call/WebRTCConnectionHandler";
 
 export const metadata: Metadata = {
   title: "Oh! Sori",
@@ -28,6 +32,11 @@ export default function RootLayout({
         <ReduxProvider>
           <InitAuthLoader>
             <ThemeToggle />
+            <ModalProvider />
+            <CallSocketHandler />
+            <CallIncomingToast />
+            <WebRTCConnectionHandler />
+            <audio id="remoteAudio" autoPlay playsInline className="hidden" />
             {children}
           </InitAuthLoader>
         </ReduxProvider>

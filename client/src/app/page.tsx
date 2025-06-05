@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store/store';
 
 import { logout } from '@/store/authSlice';
+import useRedirectIfLoggedIn from '@/hooks/useRedirectIfLoggedIn';
 
 export default function Home() {
   const [phrase, setPhrase] = useState('');
@@ -28,13 +29,8 @@ export default function Home() {
   ];
 
   const dispatch = useDispatch();
-
+  useRedirectIfLoggedIn();
   useEffect(() => {
-    if (nickname) {
-      router.replace('/home'); // 로그인했으면 대시보드로 강제 이동
-      return;
-    }
-
     apiFetch('')
       .then((res) => {
         console.log(res.message);

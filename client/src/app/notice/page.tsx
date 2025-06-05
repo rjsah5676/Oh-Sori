@@ -22,6 +22,13 @@ export default function FeedPage() {
         author: '익명2',
         image: '/images/logo.png',
       },
+      {
+        id: 3,
+        title: '망한 게임',
+        author: '로악귀',
+        image: '/images/LOSTARK.ico',
+      },
+
     ]);
   }, []);
 

@@ -8,6 +8,7 @@
 # build
 client/.next
 server/dist
+server/uploads/
 
 # OS
 .DS_Store

@@ -7,9 +7,10 @@ interface DMHeaderProps {
   profileImage?: string;
   color?: string;
   userStatus?: 'online' | 'offline' | 'away' | 'dnd';
+  onStartCall?: () => void;
 }
 
-export default function DMHeader({ nickname, tag, profileImage, color = '#ccc', userStatus }: DMHeaderProps) {
+export default function DMHeader({ nickname, tag, profileImage, color = '#ccc', userStatus,onStartCall }: DMHeaderProps) {
   return (
     <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900">
       <div className="flex items-center gap-2 min-w-0">
@@ -18,6 +19,8 @@ export default function DMHeader({ nickname, tag, profileImage, color = '#ccc', 
           profileImage={profileImage}
           color={color}
           size={30}
+          badgeOffsetX={-4}
+          badgeOffsetY={-4}
         />
         <div className="truncate">
           <div className="text-sm font-medium text-black dark:text-white">
@@ -27,7 +30,7 @@ export default function DMHeader({ nickname, tag, profileImage, color = '#ccc', 
       </div>
 
       <div className="flex items-center gap-3">
-        <button className="p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800">
+        <button onClick={onStartCall} className="p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800">
           <Phone size={18} className="text-zinc-600 dark:text-zinc-300" />
         </button>
         <button className="p-2 rounded-md hover:bg-zinc-100 dark:hover:bg-zinc-800">

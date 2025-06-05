@@ -11,6 +11,7 @@ const dmMessageSchema = new mongoose.Schema({
       },
       url: String,
       filename: String,
+      size: Number,
     }
   ],
   isReadBy: [{ type: String }], // 읽은 사용자 이메일 리스트

@@ -22,10 +22,21 @@ let peer: RTCPeerConnection | null = null;
 export const createPeerConnection = (
   onRemoteStream: (stream: MediaStream) => void
 ): RTCPeerConnection => {
-  peer = new RTCPeerConnection();
+  peer = new RTCPeerConnection({
+    iceServers: [
+      { urls: "stun:ohsori.my:3478" },
+      {
+        urls: "turn:ohsori.my:3478",
+        username: "ohsori",
+        credential: "test1234",
+      },
+    ],
+  });
+
   peer.oniceconnectionstatechange = () => {
     console.log("ICE 상태:", peer?.iceConnectionState);
   };
+
   const remoteStream = new MediaStream();
   peer.ontrack = (event) => {
     event.streams[0].getTracks().forEach((track) => {

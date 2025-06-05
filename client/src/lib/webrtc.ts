@@ -32,14 +32,23 @@ export const createPeerConnection = (
       },
     ],
   });
+  console.log("🌐 RTCPeerConnection 생성됨");
 
   peer.oniceconnectionstatechange = () => {
-    console.log("ICE 상태:", peer?.iceConnectionState);
+    console.log("🧊 ICE 연결 상태 변경:", peer?.iceConnectionState);
   };
-
+  peer.onicecandidate = (event) => {
+    if (event.candidate) {
+      console.log("📡 ICE 후보 생성됨:", event.candidate.candidate);
+    } else {
+      console.log("❗ ICE 후보 수집 완료 (null)");
+    }
+  };
   const remoteStream = new MediaStream();
   peer.ontrack = (event) => {
+    console.log("🎧 원격 스트림 수신됨:", event.streams);
     event.streams[0].getTracks().forEach((track) => {
+      console.log("🔊 수신된 트랙:", track.kind);
       remoteStream.addTrack(track);
     });
     onRemoteStream(remoteStream);

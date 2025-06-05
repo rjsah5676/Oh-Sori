@@ -42,12 +42,17 @@ export default function CallIncomingToast() {
 
   const handleAccept = async () => {
     if (!incoming) return;
+
     try {
       playSound("/images/effect/join.ogg");
+
+      // 1. 서버에 수락 이벤트 알림
       socket.emit("call:accept", {
         to: incoming.from,
         roomId: incoming.roomId,
       });
+
+      // 2. 상태 업데이트
       dispatch(acceptCall({ isCaller: false, roomId: incoming.roomId }));
       dispatch(clearIncomingCall());
 
@@ -64,6 +69,7 @@ export default function CallIncomingToast() {
       dispatch(setMode("dm"));
       socket.emit("joinRoom", incoming.roomId);
 
+      // 3. 저장된 offer 확인
       const saved = getStoredOffer();
       console.log("🗃️ 저장된 offer 확인:", saved);
       if (!saved) {
@@ -71,6 +77,7 @@ export default function CallIncomingToast() {
         return;
       }
 
+      // 4. PeerConnection 생성
       const peer = createPeerConnection((remoteStream) => {
         const audio = document.getElementById(
           "remoteAudio"
@@ -80,36 +87,44 @@ export default function CallIncomingToast() {
           audio.autoplay = true;
         }
       });
-
       setPeer(peer);
+      console.log("🌐 RTCPeerConnection 생성됨");
 
+      // 5. 로컬 마이크 스트림 연결
       const localStream = await getLocalStream();
       console.log("🎙️ 로컬 스트림 가져옴:", localStream);
-
       localStream.getTracks().forEach((track) => {
         console.log("🎤 로컬 트랙 등록됨:", track.kind);
         peer.addTrack(track, localStream);
       });
 
+      // 6. remote SDP 설정
       await peer.setRemoteDescription(new RTCSessionDescription(saved.offer));
 
+      // 7. answer 생성 및 설정
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
+      // 8. ICE 후보 수집 및 전송
+      peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log("📡 ICE 후보 생성됨:", event.candidate.candidate);
+          socket.emit("webrtc:ice-candidate", {
+            to: saved.from,
+            candidate: event.candidate,
+          });
+        } else {
+          console.log("✅ ICE 후보 수집 완료");
+        }
+      };
+
+      // 9. answer 전송
       socket.emit("webrtc:answer", {
         to: saved.from,
         answer,
       });
 
-      peer.onicecandidate = (event) => {
-        if (event.candidate) {
-          socket.emit("webrtc:ice-candidate", {
-            to: saved.from,
-            candidate: event.candidate,
-          });
-        }
-      };
-
+      // 10. 저장된 offer 정리
       clearStoredOffer();
     } catch (err) {
       console.error("❌ 통화 수락 처리 중 에러 발생:", err);

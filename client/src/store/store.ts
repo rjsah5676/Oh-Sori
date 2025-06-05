@@ -4,6 +4,7 @@ import userStatusReducer from "./userStatusSlice";
 import callReducer from "./callSlice";
 import uiReducer from "./uiSlice";
 import modalReducer from "./modalSlice";
+import settingReducer from "./settingSlice";
 
 export const store = configureStore({
   reducer: {
@@ -12,6 +13,7 @@ export const store = configureStore({
     call: callReducer,
     ui: uiReducer,
     modal: modalReducer,
+    setting: settingReducer
   },
 });
 

@@ -8,6 +8,7 @@ import CallSocketHandler from "@/components/dm/call/CallSocketHandler";
 import CallIncomingToast from "@/components/dm/call/CallIncomingToast";
 import ModalProvider from "@/components/ModalProvider";
 import WebRTCConnectionHandler from "@/components/dm/call/WebRTCConnectionHandler";
+import SettingProvider from "@/components/setting/Setting";
 
 export const metadata: Metadata = {
   title: "Oh! Sori",
@@ -33,6 +34,7 @@ export default function RootLayout({
           <InitAuthLoader>
             <ThemeToggle />
             <ModalProvider />
+            <SettingProvider />
             <CallSocketHandler />
             <CallIncomingToast />
             <WebRTCConnectionHandler />

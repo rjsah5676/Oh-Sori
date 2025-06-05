@@ -11,10 +11,10 @@ export default function AboutPage() {
       <button
         onClick={() => router.push('/')}
         className="absolute top-4 left-4 flex items-center gap-2 text-sm px-4 py-2 rounded-lg shadow bg-zinc-800 text-zinc-200 hover:bg-zinc-700 transition dark:bg-zinc-800 dark:hover:bg-zinc-700"
-        >
+      >
         <span className="text-xl">⬅</span>
       </button>
-      <div className="max-w-3xl w-full text-center space-y-6">
+      <div className='mb-6'>
         <Image
           src="/images/logo.png"
           alt="Oh! Sori 로고"
@@ -29,6 +29,8 @@ export default function AboutPage() {
           height={100}
           className="mx-auto hidden dark:block"
         />
+      </div>
+      <div className="max-w-3xl w-full text-center space-y-6">
         <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-teal-400 dark:from-teal-200 dark:to-blue-400">
           Oh! Sori는 어떤 서비스인가요?
         </h1>

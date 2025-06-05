@@ -20,6 +20,7 @@ function OAuthSuccessContent() {
   const color = searchParams.get('color');
 
   useEffect(() => {
+    console.log(nickname, email);
     if (nickname) {
       dispatch(setUser({ nickname, tag, profileImage, email, color }));
       router.replace('/');

@@ -13,6 +13,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { setStatus } from "@/store/userStatusSlice";
 import { setSelectedFriend, setMode } from "@/store/uiSlice";
 import useModalConfirm from "@/hooks/useModalConfirm";
+import { showSetting } from "@/store/settingSlice";
 
 interface FriendWithRoom {
   nickname: string;
@@ -543,13 +544,7 @@ export default function MainRedirectPage() {
             </div>
           </div>
           <div className="flex items-center gap-2 text-zinc-600 dark:text-zinc-400">
-            <button className="hover:text-black dark:hover:text-white transition">
-              <Mic size={16} />
-            </button>
-            <button className="hover:text-black dark:hover:text-white transition">
-              <Headphones size={16} />
-            </button>
-            <button
+            <button 
               onClick={async () => {
                 try {
                   await fetch(
@@ -565,6 +560,14 @@ export default function MainRedirectPage() {
                   console.error("Logout failed:", e);
                 }
               }}
+              className="hover:text-black dark:hover:text-white transition">
+              <Mic size={16} />
+            </button>
+            <button className="hover:text-black dark:hover:text-white transition">
+              <Headphones size={16} />
+            </button>
+            <button
+              onClick={()=>dispatch(showSetting())}
               className="hover:text-black dark:hover:text-white transition"
             >
               <Settings size={16} />

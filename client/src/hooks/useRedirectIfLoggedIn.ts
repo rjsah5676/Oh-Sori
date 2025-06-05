@@ -11,6 +11,11 @@ export default function useRedirectIfLoggedIn() {
 
   useEffect(() => {
     if (user) {
+      console.log(user);
+      if (user.email === "admin") {
+        router.replace('/admin');
+        return;
+      }
       router.replace('/home');
     }
   }, [user, router]);

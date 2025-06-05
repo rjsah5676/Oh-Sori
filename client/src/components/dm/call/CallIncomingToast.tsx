@@ -65,6 +65,7 @@ export default function CallIncomingToast() {
       socket.emit("joinRoom", incoming.roomId);
 
       const saved = getStoredOffer();
+      console.log("🗃️ 저장된 offer 확인:", saved);
       if (!saved) {
         console.warn("❌ 저장된 offer 없음");
         return;

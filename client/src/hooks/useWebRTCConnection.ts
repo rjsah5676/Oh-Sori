@@ -8,6 +8,7 @@ export default function useWebRTCConnection() {
     const socket = getSocket();
 
     socket.on("webrtc:offer", ({ from, offer }) => {
+      console.log("📩 offer 수신함:", from, offer);
       storeOffer({ from, offer });
     });
 

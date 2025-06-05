@@ -83,7 +83,10 @@ export default function CallIncomingToast() {
       setPeer(peer);
 
       const localStream = await getLocalStream();
+      console.log("🎙️ 로컬 스트림 가져옴:", localStream);
+
       localStream.getTracks().forEach((track) => {
+        console.log("🎤 로컬 트랙 등록됨:", track.kind);
         peer.addTrack(track, localStream);
       });
 

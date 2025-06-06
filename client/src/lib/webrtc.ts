@@ -35,7 +35,21 @@ export const createPeerConnection = (
   console.log("🌐 RTCPeerConnection 생성됨");
 
   peer.oniceconnectionstatechange = () => {
-    console.log("🧊 ICE 연결 상태 변경:", peer?.iceConnectionState);
+    const state = peer?.iceConnectionState;
+    console.log("🧊 ICE 연결 상태 변경:", state);
+
+    if (state === "connected" || state === "completed") {
+      peer?.getStats().then((stats) => {
+        stats.forEach((report) => {
+          if (
+            report.type === "candidate-pair" &&
+            report.state === "succeeded"
+          ) {
+            console.log("✅ 연결된 후보 쌍:", report);
+          }
+        });
+      });
+    }
   };
   peer.onicecandidate = (event) => {
     if (event.candidate) {

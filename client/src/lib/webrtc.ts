@@ -36,12 +36,12 @@ export const createPeerConnection = (
 
   peer.oniceconnectionstatechange = () => {
     const state = peer?.iceConnectionState;
-    console.log("🧊 ICE 연결 상태 변경:", state);
+    console.log("🧊 ICE 연결 상태 변경?:", state);
 
     peer?.getStats().then((stats) => {
       stats.forEach((report) => {
         if (report.type === "candidate-pair" && report.state === "succeeded") {
-          console.log("✅ 연결된 후보 쌍:", report);
+          console.log("✅ 연결된 후보 쌍?:", report);
         }
       });
     });

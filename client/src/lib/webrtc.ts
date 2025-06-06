@@ -31,17 +31,35 @@ export const createPeerConnection = (
         credential: "test1234",
       },
     ],
-    iceTransportPolicy: "relay",
   });
   console.log("🌐 RTCPeerConnection 생성됨");
 
   peer.oniceconnectionstatechange = () => {
-    const state = peer?.iceConnectionState;
-    console.log("🧊 ICE 연결 상태 변경?:", state);
-
+    console.log("ICE 연결 상태:", peer?.iceConnectionState);
     peer?.getStats().then((stats) => {
+      const candidates: any = {};
       stats.forEach((report) => {
-        console.log("✅ 연결된 후보 쌍?:", report);
+        if (
+          report.type === "local-candidate" ||
+          report.type === "remote-candidate"
+        ) {
+          candidates[report.id] = report;
+        }
+      });
+      stats.forEach((report) => {
+        if (report.type === "candidate-pair" && report.state === "succeeded") {
+          console.log("✅ 연결 성공 후보쌍");
+          console.log(
+            "↪️ 로컬:",
+            candidates[report.localCandidateId]?.candidateType,
+            candidates[report.localCandidateId]?.address
+          );
+          console.log(
+            "↩️ 리모트:",
+            candidates[report.remoteCandidateId]?.candidateType,
+            candidates[report.remoteCandidateId]?.address
+          );
+        }
       });
     });
   };

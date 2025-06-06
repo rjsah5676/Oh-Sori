@@ -24,7 +24,7 @@ export const createPeerConnection = (
 ): RTCPeerConnection => {
   peer = new RTCPeerConnection({
     iceServers: [
-      { urls: "stun:ohsori.my:3478" },
+      { urls: "stun:stun.l.google.com:19302" },
       {
         urls: "turn:ohsori.my:3478",
         username: "ohsori",

@@ -43,8 +43,19 @@ export const startVoiceCall = async ({
       if (audioElem) audioElem.srcObject = remoteStream;
     });
 
-    setPeer(peer); // ✅ 반드시 저장
+    // ✅ ICE 후보 콜백 등록 (반드시 가장 먼저)
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("webrtc:ice-candidate", {
+          to: target,
+          candidate: event.candidate,
+        });
+      }
+    };
 
+    setPeer(peer);
+
+    // ✅ 마이크 연결
     const localStream = await getLocalStream();
     const existingSenders = peer.getSenders();
     localStream.getTracks().forEach((track) => {
@@ -56,24 +67,14 @@ export const startVoiceCall = async ({
       }
     });
 
+    // ✅ offer 생성 → localDescription 설정 → 전송
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
 
-    // ✅ offer 전송
     socket.emit("webrtc:offer", {
       to: target,
       offer,
     });
-
-    // ✅ ICE 후보 전송
-    peer.onicecandidate = (event) => {
-      if (event.candidate) {
-        socket.emit("webrtc:ice-candidate", {
-          to: target,
-          candidate: event.candidate,
-        });
-      }
-    };
 
     // ✅ 상태 등록
     dispatch(startCall({ isCaller: true, roomId }));
@@ -111,7 +112,6 @@ export const endVoiceCall = ({
     to: targetEmail,
   });
 
-  // ✅ RTC 연결 해제
   const peer = getPeer();
   if (peer) {
     peer.close();

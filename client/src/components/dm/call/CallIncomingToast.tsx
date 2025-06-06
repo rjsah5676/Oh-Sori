@@ -87,6 +87,20 @@ export default function CallIncomingToast() {
           audio.autoplay = true;
         }
       });
+
+      // ✅ ICE 후보 콜백 등록 (먼저)
+      peer.onicecandidate = (event) => {
+        if (event.candidate) {
+          console.log("📡 ICE 후보 생성됨:", event.candidate.candidate);
+          socket.emit("webrtc:ice-candidate", {
+            to: saved.from,
+            candidate: event.candidate,
+          });
+        } else {
+          console.log("✅ ICE 후보 수집 완료");
+        }
+      };
+
       setPeer(peer);
       console.log("🌐 RTCPeerConnection 생성됨");
 
@@ -105,26 +119,13 @@ export default function CallIncomingToast() {
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
-      // 8. ICE 후보 수집 및 전송
-      peer.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log("📡 ICE 후보 생성됨:", event.candidate.candidate);
-          socket.emit("webrtc:ice-candidate", {
-            to: saved.from,
-            candidate: event.candidate,
-          });
-        } else {
-          console.log("✅ ICE 후보 수집 완료");
-        }
-      };
-
-      // 9. answer 전송
+      // 8. answer 전송
       socket.emit("webrtc:answer", {
         to: saved.from,
         answer,
       });
 
-      // 10. 저장된 offer 정리
+      // 9. 저장된 offer 정리
       clearStoredOffer();
     } catch (err) {
       console.error("❌ 통화 수락 처리 중 에러 발생:", err);

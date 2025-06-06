@@ -19,9 +19,15 @@ export const clearLocalStream = () => {
 
 let peer: RTCPeerConnection | null = null;
 
-export const createPeerConnection = (
-  onRemoteStream: (stream: MediaStream) => void
-): RTCPeerConnection => {
+export const createPeerConnection = ({
+  onRemoteStream,
+  onIceCandidate,
+  onIceConnectionStateChange,
+}: {
+  onRemoteStream: (stream: MediaStream) => void;
+  onIceCandidate?: (event: RTCPeerConnectionIceEvent) => void;
+  onIceConnectionStateChange?: (state: RTCIceConnectionState) => void;
+}): RTCPeerConnection => {
   peer = new RTCPeerConnection({
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -31,12 +37,15 @@ export const createPeerConnection = (
         credential: "test1234",
       },
     ],
-    iceTransportPolicy: "relay",
   });
   console.log("🌐 RTCPeerConnection 생성됨");
 
+  // ✅ ICE 연결 상태 추적
   peer.oniceconnectionstatechange = () => {
-    console.log("ICE 연결 상태:", peer?.iceConnectionState);
+    const state = peer!.iceConnectionState;
+    console.log("ICE 연결 상태:", state);
+    onIceConnectionStateChange?.(state);
+
     peer?.getStats().then((stats) => {
       const candidates: any = {};
       stats.forEach((report) => {
@@ -64,13 +73,18 @@ export const createPeerConnection = (
       });
     });
   };
+
+  // ✅ ICE 후보 수집
   peer.onicecandidate = (event) => {
     if (event.candidate) {
       console.log("📡 ICE 후보 생성됨:", event.candidate.candidate);
+      onIceCandidate?.(event);
     } else {
       console.log("❗ ICE 후보 수집 완료 (null)");
     }
   };
+
+  // ✅ 원격 트랙 수신
   const remoteStream = new MediaStream();
   peer.ontrack = (event) => {
     console.log("🎧 원격 스트림 수신됨:", event.streams);

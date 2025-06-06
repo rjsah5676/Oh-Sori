@@ -35,24 +35,30 @@ export const startVoiceCall = async ({
   try {
     playRingback();
 
-    // ✅ RTC 연결 시작
-    const peer = createPeerConnection((remoteStream) => {
-      const audioElem = document.getElementById(
-        "remoteAudio"
-      ) as HTMLAudioElement;
-      if (audioElem) audioElem.srcObject = remoteStream;
+    const peer = createPeerConnection({
+      onRemoteStream: (remoteStream) => {
+        const audio = document.getElementById(
+          "remoteAudio"
+        ) as HTMLAudioElement;
+        if (audio) audio.srcObject = remoteStream;
+      },
+      onIceCandidate: (event) => {
+        if (event.candidate) {
+          console.log("📡 발신자 ICE 후보 생성됨:", event.candidate.candidate);
+          socket.emit("webrtc:ice-candidate", {
+            to: target,
+            candidate: event.candidate,
+          });
+        }
+      },
+      onIceConnectionStateChange: (state) => {
+        if (state === "connected" || state === "completed") {
+          console.log("🎉 WebRTC 연결 성공");
+        } else if (state === "failed") {
+          console.warn("❌ WebRTC 연결 실패");
+        }
+      },
     });
-
-    // ✅ ICE 후보 콜백 등록 (반드시 가장 먼저)
-    peer.onicecandidate = (event) => {
-      if (event.candidate) {
-        console.log("📡 발신자 ICE 후보 생성됨:", target);
-        socket.emit("webrtc:ice-candidate", {
-          to: target,
-          candidate: event.candidate,
-        });
-      }
-    };
 
     setPeer(peer);
 

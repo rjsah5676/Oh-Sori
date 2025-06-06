@@ -78,29 +78,37 @@ export default function CallIncomingToast() {
       }
 
       // 4. PeerConnection 생성
-      const peer = createPeerConnection((remoteStream) => {
-        const audio = document.getElementById(
-          "remoteAudio"
-        ) as HTMLAudioElement;
-        if (audio) {
-          audio.srcObject = remoteStream;
-          audio.autoplay = true;
-        }
+      const peer = createPeerConnection({
+        onRemoteStream: (remoteStream) => {
+          const audio = document.getElementById(
+            "remoteAudio"
+          ) as HTMLAudioElement;
+          if (audio) {
+            audio.srcObject = remoteStream;
+            audio.autoplay = true;
+          }
+        },
+        onIceCandidate: (event) => {
+          if (event.candidate) {
+            console.log(
+              "📡 수신자 ICE 후보 생성됨:",
+              event.candidate.candidate
+            );
+            socket.emit("webrtc:ice-candidate", {
+              to: saved.from,
+              candidate: event.candidate,
+            });
+          } else {
+            console.log("✅ 수신자 ICE 후보 수집 완료");
+          }
+        },
+        onIceConnectionStateChange: (state) => {
+          console.log("📶 수신자 ICE 상태:", state);
+          if (state === "connected" || state === "completed") {
+            console.log("🎉 수신자 ICE 연결 성공");
+          }
+        },
       });
-      console.log(saved);
-
-      // ✅ ICE 후보 콜백 등록 (먼저)
-      peer.onicecandidate = (event) => {
-        if (event.candidate) {
-          console.log("📡 수신자 ICE 후보 생성됨:", event.candidate.candidate);
-          socket.emit("webrtc:ice-candidate", {
-            to: saved.from,
-            candidate: event.candidate,
-          });
-        } else {
-          console.log("✅ ICE 후보 수집 완료");
-        }
-      };
 
       setPeer(peer);
       console.log("🌐 RTCPeerConnection 생성됨");

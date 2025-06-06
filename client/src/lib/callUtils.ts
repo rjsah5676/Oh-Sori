@@ -46,6 +46,7 @@ export const startVoiceCall = async ({
     // ✅ ICE 후보 콜백 등록 (반드시 가장 먼저)
     peer.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log("📡 발신자 ICE 후보 생성됨:", target);
         socket.emit("webrtc:ice-candidate", {
           to: target,
           candidate: event.candidate,

@@ -87,11 +87,12 @@ export default function CallIncomingToast() {
           audio.autoplay = true;
         }
       });
+      console.log(saved);
 
       // ✅ ICE 후보 콜백 등록 (먼저)
       peer.onicecandidate = (event) => {
         if (event.candidate) {
-          console.log("📡 ICE 후보 생성됨:", event.candidate.candidate);
+          console.log("📡 수신자 ICE 후보 생성됨:", event.candidate.candidate);
           socket.emit("webrtc:ice-candidate", {
             to: saved.from,
             candidate: event.candidate,

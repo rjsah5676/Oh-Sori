@@ -67,7 +67,7 @@ export default function useWebRTCConnection() {
     return () => {
       socket.off("webrtc:offer");
       socket.off("webrtc:answer");
-      socket.off("webrtc:ice-candy");
+      socket.off("webrtc:ice-candidate");
     };
   }, []);
 }

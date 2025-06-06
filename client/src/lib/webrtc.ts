@@ -40,9 +40,7 @@ export const createPeerConnection = (
 
     peer?.getStats().then((stats) => {
       stats.forEach((report) => {
-        if (report.type === "candidate-pair" && report.state === "succeeded") {
-          console.log("✅ 연결된 후보 쌍?:", report);
-        }
+        console.log("✅ 연결된 후보 쌍?:", report);
       });
     });
   };

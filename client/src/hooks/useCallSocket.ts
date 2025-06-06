@@ -120,18 +120,6 @@ export default function useCallSocket() {
       clearLocalStream();
     });
 
-    // ✅ ICE 후보 즉시 처리
-    socket.on("webrtc:ice-candidate", async ({ candidate }) => {
-      const peer = getPeer();
-      if (!peer) return;
-
-      try {
-        await peer.addIceCandidate(new RTCIceCandidate(candidate));
-      } catch (err) {
-        console.warn("❌ ICE 후보 추가 실패:", err);
-      }
-    });
-
     return () => {
       socket.off("call:resume-success");
       socket.off("call:incoming");
@@ -142,7 +130,6 @@ export default function useCallSocket() {
       socket.off("call:clear");
       socket.off("call:re-clear");
       socket.off("call:busy");
-      socket.off("webrtc:ice-candidate");
     };
   }, [dispatch, myEmail]);
 }

@@ -16,7 +16,9 @@ export default function useWebRTCConnection() {
 
     socket.on("webrtc:answer", async ({ answer }) => {
       const peer = getPeer();
+      console.log("answer1");
       if (!peer) return;
+      console.log("answer2");
 
       if (peer.signalingState === "have-local-offer") {
         try {
@@ -41,9 +43,9 @@ export default function useWebRTCConnection() {
       }
     });
 
-    socket.on("webrtc:ice-candidate", async ({ candidate }) => {
+    socket.on("webrtc:ice-candidate", async ({ from, candidate }) => {
+      console.log("ice1");
       const peer = getPeer();
-      console.log("who?");
       if (!peer) return;
 
       const iceCandidate = new RTCIceCandidate(candidate);
@@ -53,6 +55,7 @@ export default function useWebRTCConnection() {
         pendingCandidates.push(iceCandidate);
       } else {
         try {
+          console.log("ice2");
           await peer.addIceCandidate(iceCandidate);
           console.log("✅ ICE 후보 바로 추가됨:", iceCandidate);
         } catch (err) {
@@ -64,7 +67,7 @@ export default function useWebRTCConnection() {
     return () => {
       socket.off("webrtc:offer");
       socket.off("webrtc:answer");
-      socket.off("webrtc:ice-candidate");
+      socket.off("webrtc:ice-candy");
     };
   }, []);
 }

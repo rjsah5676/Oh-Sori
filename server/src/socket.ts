@@ -383,6 +383,7 @@ export const initSocket = (server: any) => {
 
     socket.on("webrtc:offer", ({ to, offer }) => {
       const receiverSocketId = userSocketMap.get(to);
+      console.log("offer id:", receiverSocketId);
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("webrtc:offer", {
           from: socketToEmail.get(socket.id),
@@ -403,6 +404,7 @@ export const initSocket = (server: any) => {
 
     socket.on("webrtc:ice-candidate", ({ to, candidate }) => {
       const peerSocketId = userSocketMap.get(to);
+      console.log("ice id:", peerSocketId);
       if (peerSocketId) {
         io.to(peerSocketId).emit("webrtc:ice-candidate", {
           from: socketToEmail.get(socket.id), // ✅ 추가

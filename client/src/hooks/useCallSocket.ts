@@ -39,24 +39,9 @@ export default function useCallSocket() {
       socket.emit("register", myEmail);
     }
 
-    const setupPeer = async () => {
-      const peer = createPeerConnection((remoteStream) => {
-        const audio = document.getElementById(
-          "remoteAudio"
-        ) as HTMLAudioElement;
-        if (audio) audio.srcObject = remoteStream;
-      });
-
-      const stream = await getLocalStream();
-      stream.getTracks().forEach((track) => {
-        peer.addTrack(track, stream);
-      });
-    };
-
     socket.on("call:resume-success", async (data) => {
       if (data?.roomId) {
         dispatch(startReCall(data));
-        await setupPeer();
         playSound("/images/effect/join.ogg");
       }
     });
@@ -95,7 +80,6 @@ export default function useCallSocket() {
       dispatch(startReCall(data));
 
       if (myEmail === rejoiner) {
-        await setupPeer(); // ✅ 재참여자만 PeerConnection 다시 생성
         playSound("/images/effect/join.ogg");
       }
     });

@@ -31,6 +31,7 @@ export const createPeerConnection = (
         credential: "test1234",
       },
     ],
+    iceTransportPolicy: "relay",
   });
   console.log("🌐 RTCPeerConnection 생성됨");
 

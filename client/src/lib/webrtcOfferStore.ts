@@ -1,16 +1,15 @@
 interface OfferData {
   from: string;
   offer: RTCSessionDescriptionInit;
+  candidates?: RTCIceCandidateInit[]; // ✅ 추가
 }
 
-const KEY = "webrtc-offer";
-
 export const storeOffer = (data: OfferData) => {
-  sessionStorage.setItem(KEY, JSON.stringify(data));
+  sessionStorage.setItem("webrtc-offer", JSON.stringify(data));
 };
 
 export const getStoredOffer = (): OfferData | null => {
-  const raw = sessionStorage.getItem(KEY);
+  const raw = sessionStorage.getItem("webrtc-offer");
   if (!raw) return null;
   try {
     return JSON.parse(raw);
@@ -20,5 +19,5 @@ export const getStoredOffer = (): OfferData | null => {
 };
 
 export const clearStoredOffer = () => {
-  sessionStorage.removeItem(KEY);
+  sessionStorage.removeItem("webrtc-offer");
 };

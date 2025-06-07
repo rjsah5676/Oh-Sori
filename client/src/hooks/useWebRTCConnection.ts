@@ -9,9 +9,9 @@ export default function useWebRTCConnection() {
     const pendingCandidates: RTCIceCandidate[] = [];
     let remoteDescSet = false;
 
-    socket.on("webrtc:offer", ({ from, offer }) => {
+    socket.on("webrtc:offer", ({ from, offer, candidates }) => {
       console.log("📩 offer 수신함:", from, offer);
-      storeOffer({ from, offer });
+      storeOffer({ from, offer, candidates }); // ✅ candidates까지 저장
     });
 
     socket.on("webrtc:answer", async ({ answer }) => {

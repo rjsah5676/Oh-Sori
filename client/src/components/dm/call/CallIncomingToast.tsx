@@ -40,19 +40,34 @@ export default function CallIncomingToast() {
     audio.play().catch((e) => console.warn("Audio play error:", e));
   };
 
+  const waitForOffer = (
+    timeout = 3000,
+    interval = 100
+  ): Promise<ReturnType<typeof getStoredOffer>> => {
+    return new Promise((resolve) => {
+      const start = Date.now();
+      const check = () => {
+        const saved = getStoredOffer();
+        if (saved) return resolve(saved);
+        if (Date.now() - start >= timeout) return resolve(null);
+        setTimeout(check, interval);
+      };
+      check();
+    });
+  };
+
   const handleAccept = async () => {
     if (!incoming) return;
 
     try {
       playSound("/images/effect/join.ogg");
 
-      // 1. 서버에 수락 이벤트 알림
+      // ✅ 1. UI/상태 먼저 진입 처리 (통화방 진입 느낌 우선)
       socket.emit("call:accept", {
         to: incoming.from,
         roomId: incoming.roomId,
       });
 
-      // 2. 상태 업데이트
       dispatch(acceptCall({ isCaller: false, roomId: incoming.roomId }));
       dispatch(clearIncomingCall());
 
@@ -69,15 +84,14 @@ export default function CallIncomingToast() {
       dispatch(setMode("dm"));
       socket.emit("joinRoom", incoming.roomId);
 
-      // 3. 저장된 offer 확인
-      const saved = getStoredOffer();
+      // ✅ 2. WebRTC 연결은 백그라운드에서 처리 (offer 3초까지 기다림)
+      const saved = await waitForOffer();
       console.log("🗃️ 저장된 offer 확인:", saved);
       if (!saved) {
-        console.warn("❌ 저장된 offer 없음");
+        console.warn("❌ 3초 내 offer 수신 실패. 연결 보류.");
         return;
       }
 
-      // 4. PeerConnection 생성
       const peer = createPeerConnection({
         onRemoteStream: (remoteStream) => {
           const audio = document.getElementById(
@@ -111,33 +125,35 @@ export default function CallIncomingToast() {
       });
 
       setPeer(peer);
-      console.log("🌐 RTCPeerConnection 생성됨");
 
-      // 5. 로컬 마이크 스트림 연결
       const localStream = await getLocalStream();
-      console.log("🎙️ 로컬 스트림 가져옴:", localStream);
       localStream.getTracks().forEach((track) => {
-        console.log("🎤 로컬 트랙 등록됨:", track.kind);
         peer.addTrack(track, localStream);
       });
 
-      // 6. remote SDP 설정
       await peer.setRemoteDescription(new RTCSessionDescription(saved.offer));
 
-      // 7. answer 생성 및 설정
+      if (saved.candidates?.length) {
+        for (const cand of saved.candidates) {
+          try {
+            await peer.addIceCandidate(new RTCIceCandidate(cand));
+          } catch (err) {
+            console.warn("❌ ICE 후보 추가 실패:", err);
+          }
+        }
+      }
+
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
 
-      // 8. answer 전송
       socket.emit("webrtc:answer", {
         to: saved.from,
         answer,
       });
 
-      // 9. 저장된 offer 정리
       clearStoredOffer();
     } catch (err) {
-      console.error("❌ 통화 수락 처리 중 에러 발생:", err);
+      console.error("❌ 통화 수락 처리 중 예외 발생:", err);
     }
   };
 

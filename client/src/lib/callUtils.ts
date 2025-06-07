@@ -35,21 +35,15 @@ export const startVoiceCall = async ({
   try {
     playRingback();
 
+    const iceCandidates: RTCIceCandidate[] = [];
+    let offerSent = false;
+
     const peer = createPeerConnection({
       onRemoteStream: (remoteStream) => {
         const audio = document.getElementById(
           "remoteAudio"
         ) as HTMLAudioElement;
         if (audio) audio.srcObject = remoteStream;
-      },
-      onIceCandidate: (event) => {
-        if (event.candidate) {
-          console.log("📡 발신자 ICE 후보 생성됨:", event.candidate.candidate);
-          socket.emit("webrtc:ice-candidate", {
-            to: target,
-            candidate: event.candidate,
-          });
-        }
       },
       onIceConnectionStateChange: (state) => {
         if (state === "connected" || state === "completed") {
@@ -74,14 +68,50 @@ export const startVoiceCall = async ({
       }
     });
 
-    // ✅ offer 생성 → localDescription 설정 → 전송
+    // ✅ ICE 후보 수집
+    peer.onicecandidate = (event) => {
+      if (event.candidate) {
+        iceCandidates.push(event.candidate);
+      } else if (!offerSent) {
+        offerSent = true;
+        console.log("📡 ICE 후보 수집 완료 (null) → offer 전송");
+        socket.emit("webrtc:offer", {
+          to: target,
+          offer: peer.localDescription,
+          candidates: iceCandidates,
+        });
+      }
+    };
+
+    // ✅ ICE 수집 완료 상태 감지 (보완용)
+    peer.onicegatheringstatechange = () => {
+      if (peer.iceGatheringState === "complete" && !offerSent) {
+        offerSent = true;
+        console.log("📡 ICE 상태 complete → offer 전송");
+        socket.emit("webrtc:offer", {
+          to: target,
+          offer: peer.localDescription,
+          candidates: iceCandidates,
+        });
+      }
+    };
+
+    // ✅ 타임아웃 fallback (최후 방어)
+    setTimeout(() => {
+      if (!offerSent) {
+        offerSent = true;
+        console.log("⏰ ICE 수집 지연 → offer 강제 전송");
+        socket.emit("webrtc:offer", {
+          to: target,
+          offer: peer.localDescription,
+          candidates: iceCandidates,
+        });
+      }
+    }, 3000);
+
+    // ✅ offer 생성 → localDescription 설정
     const offer = await peer.createOffer();
     await peer.setLocalDescription(offer);
-
-    socket.emit("webrtc:offer", {
-      to: target,
-      offer,
-    });
 
     // ✅ 상태 등록
     dispatch(startCall({ isCaller: true, roomId }));

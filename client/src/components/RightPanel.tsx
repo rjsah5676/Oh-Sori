@@ -283,7 +283,7 @@ export default function RightPanel({
           call.roomId === data.roomId &&
           (!call.callerEnded || !call.calleeEnded)
         ) {
-          console.log("📵 이미 통화 중입니다.");
+          alert("📵 이미 통화 중입니다.");
           return;
         }
         const target = filteredFriends.find((f) => f.email === targetEmail);

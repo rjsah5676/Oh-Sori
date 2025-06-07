@@ -8,7 +8,7 @@ import { getSocket } from "@/lib/socket";
 import { setSelectedFriend, setMode } from "@/store/uiSlice";
 import UserAvatar from "@/components/UserAvatar";
 import { Phone, PhoneOff } from "lucide-react";
-import { getStoredOffer, clearStoredOffer } from "@/lib/webrtcOfferStore";
+import { clearStoredOffer, waitForOffer } from "@/lib/webrtcOfferStore";
 import { createPeerConnection, getLocalStream, setPeer } from "@/lib/webrtc";
 
 export default function CallIncomingToast() {
@@ -38,22 +38,6 @@ export default function CallIncomingToast() {
   const playSound = (src: string) => {
     const audio = new Audio(src);
     audio.play().catch((e) => console.warn("Audio play error:", e));
-  };
-
-  const waitForOffer = (
-    timeout = 3000,
-    interval = 100
-  ): Promise<ReturnType<typeof getStoredOffer>> => {
-    return new Promise((resolve) => {
-      const start = Date.now();
-      const check = () => {
-        const saved = getStoredOffer();
-        if (saved) return resolve(saved);
-        if (Date.now() - start >= timeout) return resolve(null);
-        setTimeout(check, interval);
-      };
-      check();
-    });
   };
 
   const handleAccept = async () => {

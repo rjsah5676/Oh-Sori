@@ -115,24 +115,41 @@ export const initSocket = (server: any) => {
 
       const keys = await redis.keys("call_room:*");
       console.log("🧪 현재 Redis 통화 키 수:", keys.length);
+
       for (const key of keys) {
         const session = await redis.hgetall(key);
         if (!session || !session.startedAt) continue;
+
         const { caller, callee, callerEnded, calleeEnded } = session;
         const roomId = key.replace("call_room:", "");
 
-        const isParticipant = caller === email || callee === email;
-        if (isParticipant) {
-          const isCaller = caller === email;
-          socket.emit("call:resume-success", {
-            roomId,
-            isCaller,
-            startedAt: Number(session.startedAt),
-            callerEnded: callerEnded === "true",
-            calleeEnded: calleeEnded === "true",
-          });
-          console.log(`📞 [register] 통화 세션 복구됨 → ${email} (${roomId})`);
+        if (caller !== email && callee !== email) continue;
+
+        const isCaller = caller === email;
+        const target = isCaller ? callee : caller;
+
+        const mySocketId = socket.id;
+        const targetSocketId = userSocketMap.get(target);
+
+        const payload = {
+          roomId,
+          isCaller,
+          target,
+          resumedBy: email, // ✅ 누가 새로고침했는지 식별용
+          startedAt: Number(session.startedAt),
+          callerEnded: callerEnded === "true",
+          calleeEnded: calleeEnded === "true",
+        };
+
+        // ✅ 나한테도 보내고
+        io.to(mySocketId).emit("call:resume-success", payload);
+
+        // ✅ 상대방에게도 같은 payload 보내기
+        if (targetSocketId) {
+          io.to(targetSocketId).emit("call:resume-success", payload);
         }
+
+        console.log(`📞 resume-success → ${email} + ${target}`);
       }
 
       const currentStatus = await getUserStatus(email);

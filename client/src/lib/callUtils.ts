@@ -8,6 +8,7 @@ import {
   getPeer,
   setPeer,
 } from "@/lib/webrtc";
+import { clearStoredOffer } from "./webrtcOfferStore";
 
 export const startVoiceCall = async ({
   socket,
@@ -158,4 +159,145 @@ export const endVoiceCall = ({
   clearLocalStream();
   dispatch(endCall());
   stopRingback();
+};
+
+export const initOfferConnection = async ({
+  socket,
+  target,
+  onRemoteStream,
+  onConnected,
+}: {
+  socket: any;
+  target: string;
+  onRemoteStream: (stream: MediaStream) => void;
+  onConnected?: () => void;
+}) => {
+  const iceCandidates: RTCIceCandidate[] = [];
+  let offerSent = false;
+
+  const peer = createPeerConnection({
+    onRemoteStream,
+    onIceConnectionStateChange: (state) => {
+      if (state === "connected" || state === "completed") {
+        console.log("🎉 연결 성공");
+        onConnected?.();
+      }
+    },
+  });
+
+  setPeer(peer);
+
+  const localStream = await getLocalStream();
+  localStream.getTracks().forEach((track) => {
+    peer.addTrack(track, localStream);
+  });
+
+  peer.onicecandidate = (event) => {
+    if (event.candidate) {
+      iceCandidates.push(event.candidate);
+    } else if (!offerSent) {
+      offerSent = true;
+      socket.emit("webrtc:offer", {
+        to: target,
+        offer: peer.localDescription,
+        candidates: iceCandidates,
+      });
+    }
+  };
+
+  peer.onicegatheringstatechange = () => {
+    console.log("🌐 ICE gathering state:", peer.iceGatheringState);
+    if (peer.iceGatheringState === "complete" && !offerSent) {
+      offerSent = true;
+      console.log("📡 ICE 상태 complete → offer 전송");
+      socket.emit("webrtc:offer", {
+        to: target,
+        offer: peer.localDescription,
+        candidates: iceCandidates,
+      });
+    }
+  };
+
+  setTimeout(() => {
+    if (!offerSent) {
+      offerSent = true;
+      socket.emit("webrtc:offer", {
+        to: target,
+        offer: peer.localDescription,
+        candidates: iceCandidates,
+      });
+    }
+  }, 3000);
+
+  const offer = await peer.createOffer();
+  await peer.setLocalDescription(offer);
+};
+
+// lib/webrtc/initAnswerConnection.ts
+export const initAnswerConnection = async ({
+  socket,
+  saved,
+}: {
+  socket: any;
+  saved: {
+    from: string;
+    offer: RTCSessionDescriptionInit;
+    candidates?: RTCIceCandidateInit[];
+  };
+}) => {
+  const peer = createPeerConnection({
+    onRemoteStream: (remoteStream) => {
+      const audio = document.getElementById("remoteAudio") as HTMLAudioElement;
+      if (audio) {
+        audio.srcObject = remoteStream;
+        audio.autoplay = true;
+      }
+    },
+    onIceCandidate: (event) => {
+      if (event.candidate) {
+        console.log("📡 수신자 ICE 후보 생성됨:", event.candidate.candidate);
+        socket.emit("webrtc:ice-candidate", {
+          to: saved.from,
+          candidate: event.candidate,
+        });
+      } else {
+        console.log("✅ 수신자 ICE 후보 수집 완료");
+      }
+    },
+    onIceConnectionStateChange: (state) => {
+      console.log("📶 수신자 ICE 상태:", state);
+      if (state === "connected" || state === "completed") {
+        console.log("🎉 수신자 ICE 연결 성공");
+      }
+    },
+  });
+
+  setPeer(peer);
+
+  const localStream = await getLocalStream();
+  localStream.getTracks().forEach((track) => {
+    peer.addTrack(track, localStream);
+  });
+
+  await peer.setRemoteDescription(new RTCSessionDescription(saved.offer));
+
+  if (saved.candidates?.length) {
+    for (const cand of saved.candidates) {
+      try {
+        await peer.addIceCandidate(new RTCIceCandidate(cand));
+      } catch (err) {
+        console.warn("❌ ICE 후보 추가 실패:", err);
+      }
+    }
+  }
+
+  const answer = await peer.createAnswer();
+  await peer.setLocalDescription(answer);
+
+  socket.emit("webrtc:answer", {
+    to: saved.from,
+    answer,
+  });
+
+  clearStoredOffer();
 };

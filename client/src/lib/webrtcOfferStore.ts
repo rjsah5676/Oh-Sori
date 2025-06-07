@@ -21,3 +21,19 @@ export const getStoredOffer = (): OfferData | null => {
 export const clearStoredOffer = () => {
   sessionStorage.removeItem("webrtc-offer");
 };
+
+export const waitForOffer = (
+  timeout = 3000,
+  interval = 100
+): Promise<ReturnType<typeof getStoredOffer>> => {
+  return new Promise((resolve) => {
+    const start = Date.now();
+    const check = () => {
+      const saved = getStoredOffer();
+      if (saved) return resolve(saved);
+      if (Date.now() - start >= timeout) return resolve(null);
+      setTimeout(check, interval);
+    };
+    check();
+  });
+};

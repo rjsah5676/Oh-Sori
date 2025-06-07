@@ -20,6 +20,8 @@ import {
   getPeer,
 } from "@/lib/webrtc";
 import useModalConfirm from "./useModalConfirm";
+import { initOfferConnection, initAnswerConnection } from "@/lib/callUtils";
+import { waitForOffer } from "@/lib/webrtcOfferStore";
 
 export default function useCallSocket() {
   const { alert } = useModalConfirm();
@@ -38,11 +40,41 @@ export default function useCallSocket() {
     if (myEmail) {
       socket.emit("register", myEmail);
     }
-
     socket.on("call:resume-success", async (data) => {
-      if (data?.roomId) {
+      console.log("resume-success");
+
+      const { roomId, target, resumedBy } = data;
+
+      if (!roomId || !target || !resumedBy || !myEmail) return;
+
+      const isSelf = resumedBy === myEmail;
+
+      if (isSelf) {
+        console.log("실제잇");
         dispatch(startReCall(data));
         playSound("/images/effect/join.ogg");
+
+        await initOfferConnection({
+          socket,
+          target,
+          onRemoteStream: (stream) => {
+            const audio = document.getElementById(
+              "remoteAudio"
+            ) as HTMLAudioElement;
+            if (audio) {
+              audio.srcObject = stream;
+              audio.autoplay = true;
+            }
+          },
+        });
+      } else {
+        console.log("반대잇");
+        const saved = await waitForOffer();
+        if (saved) {
+          await initAnswerConnection({ socket, saved });
+        } else {
+          console.warn("❌ 3초 내 offer 수신 실패. 연결 보류.");
+        }
       }
     });
 
@@ -74,14 +106,13 @@ export default function useCallSocket() {
     });
 
     socket.on("call:reconn-success", async (data) => {
+      console.log("reconn-success");
       const { roomId, rejoiner } = data;
       if (!roomId) return;
-
+      stopRingback();
       dispatch(startReCall(data));
 
-      if (myEmail === rejoiner) {
-        playSound("/images/effect/join.ogg");
-      }
+      playSound("/images/effect/join.ogg");
     });
 
     socket.on("call:clear", () => {

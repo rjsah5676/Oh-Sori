@@ -32,7 +32,7 @@ export const createPeerConnection = ({
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
       {
-        urls: "turn:ohsori.my:3478",
+        urls: "turn:ohsori.my:3478?transport=udp",
         username: "ohsori",
         credential: "test1234",
       },

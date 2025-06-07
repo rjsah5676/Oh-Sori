@@ -433,14 +433,15 @@ export const initSocket = (server: any) => {
 
     socket.on("disconnect", async () => {
       console.log("🔴 소켓 해제됨:", socket.id);
-
       const email = socketToEmail.get(socket.id);
 
       setTimeout(async () => {
-        if (!userSocketMap.has(email!)) {
-          if (email) {
-            await handleCallCleanup(email); //통화 종료
+        const currentSocketId = userSocketMap.get(email!);
+        const isSameSocket = currentSocketId === socket.id;
 
+        if (isSameSocket) {
+          if (email) {
+            await handleCallCleanup(email);
             userSocketMap.delete(email);
             socketToEmail.delete(socket.id);
 
@@ -448,8 +449,9 @@ export const initSocket = (server: any) => {
 
             const currentStatus = await getUserStatus(email);
             io.emit("status-update", { email, status: currentStatus });
+
+            console.log(`🟥 오프라인 처리 완료: ${email}`);
           }
-          // 실제 오프라인 처리
         } else {
           console.log(`🔁 ${email} 새로고침 감지됨`);
         }

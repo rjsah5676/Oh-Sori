@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 body {
-  font-family: 'Pretendard', sans-serif;
+  font-family: "Pretendard", sans-serif;
 }
 
 ::-webkit-scrollbar {
@@ -24,4 +24,20 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background-color: #555;
+}
+
+@keyframes micBlink {
+  0% {
+    box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.6);
+  }
+  50% {
+    box-shadow: 0 0 10px 5px rgba(0, 255, 0, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.6);
+  }
+}
+
+.mic-active {
+  animation: micBlink 1s infinite;
 }

@@ -430,6 +430,15 @@ export const initSocket = (server: any) => {
       }
     });
 
+    socket.on("voice:active", ({ roomId, email }) => {
+      socket.to(roomId).emit("voice:active", { email });
+    });
+
+    // 마이크 감지 - 비활성화
+    socket.on("voice:inactive", ({ roomId, email }) => {
+      socket.to(roomId).emit("voice:inactive", { email });
+    });
+
     socket.on("logout", async (email: string) => {
       const existingSocketId = userSocketMap.get(email);
 

@@ -179,12 +179,26 @@ export default function MainRedirectPage() {
     });
     socket.on("status-update", handleStatusUpdate);
 
+    const handleClickAnywhere = () => {
+      const socket = getSocket();
+      if (socket.disconnected) {
+        console.log("🧩 클릭 감지: 소켓 끊김 상태 → 재연결 시도");
+        socket.connect();
+        if (email) {
+          socket.emit("register", email);
+        }
+      }
+    };
+
+    window.addEventListener("click", handleClickAnywhere);
+
     return () => {
       socket.off("connect", handleRegister);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("refreshDmList", refreshDmList);
       socket.off("friendRequestReceived");
       socket.off("status-update", handleStatusUpdate);
+      window.removeEventListener("click", handleClickAnywhere);
     };
   }, [email]);
 

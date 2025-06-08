@@ -181,8 +181,11 @@ export default function MainRedirectPage() {
 
     const handleClickAnywhere = () => {
       const socket = getSocket();
-      if (socket.disconnected) {
-        console.log("🧩 클릭 감지: 소켓 끊김 상태 → 재연결 시도");
+      const currentStatus = userStatus; // 내 상태
+      const disconnected = socket.disconnected;
+
+      if (disconnected || currentStatus === "offline") {
+        console.log("🧩 [소켓 상태 불일치 감지] → 자동 재연결 시도");
         socket.connect();
         if (email) {
           socket.emit("register", email);

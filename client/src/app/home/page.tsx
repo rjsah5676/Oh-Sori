@@ -179,29 +179,12 @@ export default function MainRedirectPage() {
     });
     socket.on("status-update", handleStatusUpdate);
 
-    const handleClickAnywhere = () => {
-      const socket = getSocket();
-      const currentStatus = userStatus; // 내 상태
-      const disconnected = socket.disconnected;
-
-      if (disconnected || currentStatus === "offline") {
-        console.log("🧩 [소켓 상태 불일치 감지] → 자동 재연결 시도");
-        socket.connect();
-        if (email) {
-          socket.emit("register", email);
-        }
-      }
-    };
-
-    window.addEventListener("click", handleClickAnywhere);
-
     return () => {
       socket.off("connect", handleRegister);
       socket.off("receiveMessage", handleReceiveMessage);
       socket.off("refreshDmList", refreshDmList);
       socket.off("friendRequestReceived");
       socket.off("status-update", handleStatusUpdate);
-      window.removeEventListener("click", handleClickAnywhere);
     };
   }, [email]);
 
@@ -213,6 +196,26 @@ export default function MainRedirectPage() {
       }))
     );
   }, [friendStatuses]);
+
+  useEffect(() => {
+    const handleClickAnywhere = () => {
+      const socket = getSocket();
+      const currentStatus = userStatus; // 내 상태
+      const disconnected = socket.disconnected;
+      if (disconnected || currentStatus === "offline") {
+        console.log("🧩 [소켓 상태 불일치 감지] → 자동 재연결 시도");
+        socket.connect();
+        if (email) {
+          socket.emit("register", email);
+        }
+      }
+    };
+
+    window.addEventListener("click", handleClickAnywhere);
+    return () => {
+      window.removeEventListener("click", handleClickAnywhere);
+    };
+  }, [email, userStatus]);
 
   useEffect(() => {
     if (selectedFriend && email) {
@@ -433,7 +436,7 @@ export default function MainRedirectPage() {
                 );
 
                 dispatch(logout());
-                router.refresh();
+                router.push("/");
               } catch (e) {
                 console.error("Logout failed:", e);
               }
@@ -570,6 +573,11 @@ export default function MainRedirectPage() {
             <button
               onClick={async () => {
                 try {
+                  const socket = getSocket();
+                  if (email) {
+                    socket.emit("logout", email);
+                  }
+
                   await fetch(
                     `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`,
                     {
@@ -577,8 +585,9 @@ export default function MainRedirectPage() {
                       credentials: "include",
                     }
                   );
+
                   dispatch(logout());
-                  router.refresh();
+                  router.push("/");
                 } catch (e) {
                   console.error("Logout failed:", e);
                 }

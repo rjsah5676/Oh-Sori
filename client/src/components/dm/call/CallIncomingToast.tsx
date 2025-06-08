@@ -9,7 +9,13 @@ import { setSelectedFriend, setMode } from "@/store/uiSlice";
 import UserAvatar from "@/components/UserAvatar";
 import { Phone, PhoneOff } from "lucide-react";
 import { clearStoredOffer, waitForOffer } from "@/lib/webrtcOfferStore";
-import { createPeerConnection, getLocalStream, setPeer } from "@/lib/webrtc";
+import {
+  createPeerConnection,
+  getLocalStream,
+  setPeer,
+  getPeer,
+  clearLocalStream,
+} from "@/lib/webrtc";
 
 export default function CallIncomingToast() {
   const call = useSelector((state: RootState) => state.call);
@@ -75,7 +81,12 @@ export default function CallIncomingToast() {
         console.warn("❌ 3초 내 offer 수신 실패. 연결 보류.");
         return;
       }
-
+      await clearLocalStream();
+      const prev = getPeer();
+      if (prev) {
+        prev.close();
+        setPeer(null);
+      }
       const peer = createPeerConnection({
         onRemoteStream: (remoteStream) => {
           const audio = document.getElementById(
@@ -108,13 +119,11 @@ export default function CallIncomingToast() {
         },
       });
 
-      setPeer(peer);
-
       const localStream = await getLocalStream();
       localStream.getTracks().forEach((track) => {
         peer.addTrack(track, localStream);
       });
-
+      setPeer(peer);
       await peer.setRemoteDescription(new RTCSessionDescription(saved.offer));
 
       if (saved.candidates?.length) {

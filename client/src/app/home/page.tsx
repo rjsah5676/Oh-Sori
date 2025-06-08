@@ -13,6 +13,7 @@ import UserAvatar from "@/components/UserAvatar";
 import { setStatus } from "@/store/userStatusSlice";
 import { setSelectedFriend, setMode } from "@/store/uiSlice";
 import useModalConfirm from "@/hooks/useModalConfirm";
+import { clearLocalStream } from "@/lib/webrtc";
 
 interface FriendWithRoom {
   nickname: string;
@@ -122,29 +123,34 @@ export default function MainRedirectPage() {
   }, [selectedFriend]);
 
   useEffect(() => {
-    if (!registerSentRef.current && email) {
-      fetchPendingCount();
-      fetchDMList();
+    if (!email) return;
 
-      const silence = new Audio("/sounds/silence.wav");
-      silence.volume = 0;
-      silence.play().catch(() => {});
-
-      notificationAudio.current = new Audio("/sounds/notification.wav");
-      notificationAudio.current.load();
-      notificationAudio.current.volume = 0.5;
-    }
-    if (email && socket.connected && !registerSentRef.current) {
-      socket.emit("register", email);
-      registerSentRef.current = true;
-    }
-
-    const handleConnect = () => {
-      if (email && !registerSentRef.current) {
+    const handleRegister = () => {
+      if (!registerSentRef.current) {
+        console.log("✅ register 실행됨");
         socket.emit("register", email);
+        clearLocalStream();
         registerSentRef.current = true;
       }
     };
+
+    fetchPendingCount();
+    fetchDMList();
+
+    const silence = new Audio("/sounds/silence.wav");
+    silence.volume = 0;
+    silence.play().catch(() => {});
+
+    notificationAudio.current = new Audio("/sounds/notification.wav");
+    notificationAudio.current.load();
+    notificationAudio.current.volume = 0.5;
+
+    if (socket.connected) {
+      handleRegister(); // 🔹 연결돼 있으면 바로 실행
+    }
+
+    socket.on("connect", handleRegister); // 🔹 연결 이후 이벤트에도 대비
+
     const handleStatusUpdate = (data: {
       email: string;
       status: "online" | "offline" | "away" | "dnd" | null;
@@ -167,7 +173,6 @@ export default function MainRedirectPage() {
 
     socket.on("receiveMessage", handleReceiveMessage);
     socket.on("refreshDmList", refreshDmList);
-    socket.on("connect", handleConnect);
     socket.on("friendRequestReceived", (data) => {
       console.log("📩 친구 요청 도착:", data);
       fetchPendingCount();
@@ -175,11 +180,11 @@ export default function MainRedirectPage() {
     socket.on("status-update", handleStatusUpdate);
 
     return () => {
+      socket.off("connect", handleRegister);
       socket.off("receiveMessage", handleReceiveMessage);
-      socket.off("connect", handleConnect);
+      socket.off("refreshDmList", refreshDmList);
       socket.off("friendRequestReceived");
       socket.off("status-update", handleStatusUpdate);
-      socket.off("refreshDmList", refreshDmList);
     };
   }, [email]);
 
@@ -201,10 +206,6 @@ export default function MainRedirectPage() {
       socket.emit("refreshDmList");
     }
   }, [selectedFriend, email]);
-
-  useEffect(() => {
-    if (!nickname) router.replace("/");
-  }, [nickname, router]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -249,7 +250,7 @@ export default function MainRedirectPage() {
       alert("DM 생성 중 오류 발생");
     }
   };
-
+  if (!nickname) return null;
   return (
     <>
       {!isSidebarOpen && (

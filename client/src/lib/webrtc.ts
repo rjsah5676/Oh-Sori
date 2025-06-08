@@ -1,4 +1,7 @@
+import { clearStoredOffer } from "./webrtcOfferStore";
+
 let localStream: MediaStream | null = null;
+let peer: RTCPeerConnection | null = null;
 
 export const getLocalStream = async (): Promise<MediaStream> => {
   if (localStream) return localStream;
@@ -12,12 +15,12 @@ export const getLocalStream = async (): Promise<MediaStream> => {
   }
 };
 
-export const clearLocalStream = () => {
+export const clearLocalStream = async () => {
+  console.log("로컬 스트림 삭제");
+  clearStoredOffer();
   localStream?.getTracks().forEach((track) => track.stop());
   localStream = null;
 };
-
-let peer: RTCPeerConnection | null = null;
 
 export const createPeerConnection = ({
   onRemoteStream,
@@ -28,7 +31,7 @@ export const createPeerConnection = ({
   onIceCandidate?: (event: RTCPeerConnectionIceEvent) => void;
   onIceConnectionStateChange?: (state: RTCIceConnectionState) => void;
 }): RTCPeerConnection => {
-  peer = new RTCPeerConnection({
+  const newPeer = new RTCPeerConnection({
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
       {
@@ -38,15 +41,16 @@ export const createPeerConnection = ({
       },
     ],
   });
+
   console.log("🌐 RTCPeerConnection 생성됨");
 
   // ✅ ICE 연결 상태 추적
-  peer.oniceconnectionstatechange = () => {
-    const state = peer!.iceConnectionState;
+  newPeer.oniceconnectionstatechange = () => {
+    const state = newPeer.iceConnectionState;
     console.log("ICE 연결 상태:", state);
     onIceConnectionStateChange?.(state);
 
-    peer?.getStats().then((stats) => {
+    newPeer.getStats().then((stats) => {
       const candidates: any = {};
       stats.forEach((report) => {
         if (
@@ -75,7 +79,7 @@ export const createPeerConnection = ({
   };
 
   // ✅ ICE 후보 수집
-  peer.onicecandidate = (event) => {
+  newPeer.onicecandidate = (event) => {
     if (event.candidate) {
       console.log("📡 ICE 후보 생성됨:", event.candidate.candidate);
       onIceCandidate?.(event);
@@ -86,7 +90,7 @@ export const createPeerConnection = ({
 
   // ✅ 원격 트랙 수신
   const remoteStream = new MediaStream();
-  peer.ontrack = (event) => {
+  newPeer.ontrack = (event) => {
     console.log("🎧 원격 스트림 수신됨:", event.streams);
     event.streams[0].getTracks().forEach((track) => {
       console.log("🔊 수신된 트랙:", track.kind);
@@ -95,11 +99,10 @@ export const createPeerConnection = ({
     onRemoteStream(remoteStream);
   };
 
-  return peer;
+  return newPeer;
 };
 
 export const getPeer = (): RTCPeerConnection | null => peer;
-
 export const setPeer = (p: RTCPeerConnection | null) => {
   peer = p;
 };

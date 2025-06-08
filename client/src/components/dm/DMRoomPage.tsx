@@ -12,7 +12,7 @@ import { startCall } from "@/store/callSlice";
 import { endCall, clearIncomingCall, finalizeCall } from "@/store/callSlice";
 import { startVoiceCall, endVoiceCall } from "@/lib/callUtils";
 import { showModal } from "@/store/modalSlice";
-
+import { initOfferConnection } from "@/lib/callUtils";
 interface Message {
   _id: string;
   roomId: string;
@@ -503,9 +503,23 @@ export default function DMRoomPage() {
     });
   };
 
-  const handleJoinCall = () => {
+  const handleJoinCall = async () => {
     const roomId = selectedFriend?.roomId;
-    if (!roomId || !myEmail) return;
+    const target = selectedFriend?.email;
+    if (!roomId || !myEmail || !target) return;
+    await initOfferConnection({
+      socket,
+      target,
+      onRemoteStream: (stream) => {
+        const audio = document.getElementById(
+          "remoteAudio"
+        ) as HTMLAudioElement;
+        if (audio) {
+          audio.srcObject = stream;
+          audio.autoplay = true;
+        }
+      },
+    });
     socket.emit("call:reconn", {
       roomId,
       from: myEmail,

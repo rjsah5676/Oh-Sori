@@ -1,6 +1,6 @@
 import { useEffect } from "react";
-import { getSocket } from "@/lib/socket";
 import { useDispatch, useSelector } from "react-redux";
+import { RootState } from "@/store/store";
 import {
   startReCall,
   peerConnected,
@@ -11,72 +11,74 @@ import {
   startCall,
   clearCall,
 } from "@/store/callSlice";
-import { RootState } from "@/store/store";
 import { stopRingback } from "@/lib/ringbackManager";
-import {
-  clearLocalStream,
-  getLocalStream,
-  createPeerConnection,
-  getPeer,
-} from "@/lib/webrtc";
+import { clearLocalStream } from "@/lib/webrtc";
 import useModalConfirm from "./useModalConfirm";
 import { initOfferConnection, initAnswerConnection } from "@/lib/callUtils";
 import { waitForOffer } from "@/lib/webrtcOfferStore";
+import { getSocket } from "@/lib/socket";
 
 export default function useCallSocket() {
   const { alert } = useModalConfirm();
   const dispatch = useDispatch();
   const myEmail =
     useSelector((state: RootState) => state.auth.user?.email) || "";
+  const socket = getSocket();
 
-  const playSound = (src: string) => {
-    const audio = new Audio(src);
-    audio.play().catch((e) => console.warn("Audio play error:", e));
+  const playSound = async (src: string) => {
+    try {
+      const audio = new Audio(src);
+      await audio.play();
+    } catch (err) {
+      console.warn("🔇 Audio play error:", err);
+    }
   };
 
   useEffect(() => {
-    const socket = getSocket();
+    if (!myEmail) return;
 
-    if (myEmail) {
-      socket.emit("register", myEmail);
-    }
-    socket.on("call:resume-success", async (data) => {
-      console.log("resume-success");
-
+    const resumeHandler = async (data: any) => {
       const { roomId, target, resumedBy } = data;
-
       if (!roomId || !target || !resumedBy || !myEmail) return;
 
       const isSelf = resumedBy === myEmail;
 
+      const isWebRTC = !data.calleeEnded && !data.callerEnded;
       if (isSelf) {
-        console.log("실제잇");
+        console.log("🎧 내가 재참여함");
         dispatch(startReCall(data));
-        playSound("/images/effect/join.ogg");
-
-        await initOfferConnection({
-          socket,
-          target,
-          onRemoteStream: (stream) => {
-            const audio = document.getElementById(
-              "remoteAudio"
-            ) as HTMLAudioElement;
-            if (audio) {
-              audio.srcObject = stream;
-              audio.autoplay = true;
-            }
-          },
-        });
+        await playSound("/images/effect/join.ogg");
+        if (isWebRTC)
+          await initOfferConnection({
+            socket,
+            target,
+            onRemoteStream: (stream) => {
+              const audio = document.getElementById(
+                "remoteAudio"
+              ) as HTMLAudioElement;
+              if (audio) {
+                audio.srcObject = stream;
+                audio.autoplay = true;
+              }
+            },
+          });
       } else {
-        console.log("반대잇");
-        const saved = await waitForOffer();
-        if (saved) {
+        if (isWebRTC) {
+          await clearLocalStream();
+          console.log("📥 상대방이 재참여함, offer 대기...");
+          const saved = await waitForOffer();
+          if (!saved) {
+            console.warn("❌ 3초 내 offer 수신 실패. 연결 보류.");
+            return;
+          }
           await initAnswerConnection({ socket, saved });
-        } else {
-          console.warn("❌ 3초 내 offer 수신 실패. 연결 보류.");
         }
       }
-    });
+    };
+
+    // ✅ 먼저 기존 핸들러 제거 (동일한 콜백이어야 함)
+    socket.off("call:resume-success", resumeHandler);
+    socket.on("call:resume-success", resumeHandler);
 
     socket.on(
       "call:incoming",
@@ -106,13 +108,22 @@ export default function useCallSocket() {
     });
 
     socket.on("call:reconn-success", async (data) => {
-      console.log("reconn-success");
-      const { roomId, rejoiner } = data;
+      console.log("reconn");
+      const { roomId } = data;
       if (!roomId) return;
-      stopRingback();
       dispatch(startReCall(data));
-
       playSound("/images/effect/join.ogg");
+      stopRingback();
+      if (myEmail !== data.rejoiner) {
+        await clearLocalStream();
+        console.log("📥 상대방이 재참여함, offer 대기...");
+        const saved = await waitForOffer();
+        if (!saved) {
+          console.warn("❌ 3초 내 offer 수신 실패. 연결 보류.");
+          return;
+        }
+        await initAnswerConnection({ socket, saved });
+      }
     });
 
     socket.on("call:clear", () => {
@@ -136,7 +147,7 @@ export default function useCallSocket() {
     });
 
     return () => {
-      socket.off("call:resume-success");
+      socket.off("call:resume-success", resumeHandler);
       socket.off("call:incoming");
       socket.off("call:peer-connected");
       socket.off("call:peer-disconnected");
@@ -146,5 +157,5 @@ export default function useCallSocket() {
       socket.off("call:re-clear");
       socket.off("call:busy");
     };
-  }, [dispatch, myEmail]);
+  }, [myEmail]);
 }

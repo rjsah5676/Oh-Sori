@@ -23,7 +23,7 @@ export const clearStoredOffer = () => {
 };
 
 export const waitForOffer = (
-  timeout = 3000,
+  timeout = 10000,
   interval = 100
 ): Promise<ReturnType<typeof getStoredOffer>> => {
   return new Promise((resolve) => {

@@ -32,13 +32,18 @@ export const startVoiceCall = async ({
   color: string;
 }) => {
   stopRingback();
-
   try {
     playRingback();
 
     const iceCandidates: RTCIceCandidate[] = [];
     let offerSent = false;
 
+    const prev = getPeer();
+    if (prev) {
+      prev.close();
+      setPeer(null);
+    }
+    await clearLocalStream();
     const peer = createPeerConnection({
       onRemoteStream: (remoteStream) => {
         const audio = document.getElementById(
@@ -55,19 +60,13 @@ export const startVoiceCall = async ({
       },
     });
 
-    setPeer(peer);
-
     // ✅ 마이크 연결
     const localStream = await getLocalStream();
-    const existingSenders = peer.getSenders();
     localStream.getTracks().forEach((track) => {
-      const alreadyAdded = existingSenders.some(
-        (sender) => sender.track === track
-      );
-      if (!alreadyAdded) {
-        peer.addTrack(track, localStream);
-      }
+      peer.addTrack(track, localStream);
     });
+
+    setPeer(peer);
 
     // ✅ ICE 후보 수집
     peer.onicecandidate = (event) => {
@@ -172,6 +171,12 @@ export const initOfferConnection = async ({
   onRemoteStream: (stream: MediaStream) => void;
   onConnected?: () => void;
 }) => {
+  const prev = getPeer();
+  if (prev) {
+    prev.close();
+    setPeer(null);
+  }
+  await clearLocalStream();
   const iceCandidates: RTCIceCandidate[] = [];
   let offerSent = false;
 
@@ -185,13 +190,11 @@ export const initOfferConnection = async ({
     },
   });
 
-  setPeer(peer);
-
   const localStream = await getLocalStream();
   localStream.getTracks().forEach((track) => {
     peer.addTrack(track, localStream);
   });
-
+  setPeer(peer);
   peer.onicecandidate = (event) => {
     if (event.candidate) {
       iceCandidates.push(event.candidate);
@@ -245,6 +248,12 @@ export const initAnswerConnection = async ({
     candidates?: RTCIceCandidateInit[];
   };
 }) => {
+  const prev = getPeer();
+  if (prev) {
+    prev.close();
+    setPeer(null);
+  }
+  await clearLocalStream();
   const peer = createPeerConnection({
     onRemoteStream: (remoteStream) => {
       const audio = document.getElementById("remoteAudio") as HTMLAudioElement;
@@ -272,13 +281,11 @@ export const initAnswerConnection = async ({
     },
   });
 
-  setPeer(peer);
-
   const localStream = await getLocalStream();
   localStream.getTracks().forEach((track) => {
     peer.addTrack(track, localStream);
   });
-
+  setPeer(peer);
   await peer.setRemoteDescription(new RTCSessionDescription(saved.offer));
 
   if (saved.candidates?.length) {

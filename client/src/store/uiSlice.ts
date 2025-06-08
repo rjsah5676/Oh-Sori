@@ -1,6 +1,6 @@
-import { createSlice, PayloadAction } from '@reduxjs/toolkit';
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-interface FriendWithRoom {
+export interface FriendWithRoom {
   nickname: string;
   tag: string;
   email: string;
@@ -9,33 +9,36 @@ interface FriendWithRoom {
   roomId: string;
 }
 
-interface UIState {
-  mode: 'friends' | 'dm' | 'shop' | 'add-friend';
+export interface UIState {
+  mode: "friends" | "dm" | "shop" | "add-friend";
   selectedFriend: FriendWithRoom | null;
 }
 
-const initialState: UIState = {
-  mode: 'friends',
+export const initialState: UIState = {
+  mode: "friends",
   selectedFriend: null,
 };
 
 const uiSlice = createSlice({
-  name: 'ui',
+  name: "ui",
   initialState,
   reducers: {
-    setMode: (state, action: PayloadAction<UIState['mode']>) => {
+    setMode: (state, action: PayloadAction<UIState["mode"]>) => {
       state.mode = action.payload;
     },
-    setSelectedFriend: (state, action: PayloadAction<FriendWithRoom | null>) => {
+    setSelectedFriend: (
+      state,
+      action: PayloadAction<FriendWithRoom | null>
+    ) => {
       state.selectedFriend = action.payload;
     },
     openDM: (state, action: PayloadAction<FriendWithRoom>) => {
       state.selectedFriend = action.payload;
-      state.mode = 'dm';
+      state.mode = "dm";
     },
     clearUI: (state) => {
       state.selectedFriend = null;
-      state.mode = 'friends';
+      state.mode = "friends";
     },
   },
 });

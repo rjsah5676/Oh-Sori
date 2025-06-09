@@ -178,18 +178,26 @@ export default function useCallSocket() {
     if (!myEmail || !roomId || !isCallOngoing) return;
 
     let cleanup: (() => void) | null = null;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
 
-    getLocalStream()
-      .then((stream) => {
-        cleanup = startMicActivity({
-          email: myEmail,
-          roomId,
-          stream,
-        });
-      })
-      .catch(console.error);
-    console.log("??mic");
+    timeoutId = setTimeout(() => {
+      getLocalStream()
+        .then((stream) => {
+          if (!stream.active || stream.getAudioTracks().length === 0) {
+            return;
+          }
+
+          cleanup = startMicActivity({
+            email: myEmail,
+            roomId,
+            stream,
+          });
+        })
+        .catch(console.error);
+    }, 1000); // ⏱ 1초 딜레이 후 실행
+
     return () => {
+      if (timeoutId) clearTimeout(timeoutId);
       if (cleanup) cleanup();
     };
   }, [myEmail, roomId, isCallOngoing]);

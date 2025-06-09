@@ -17,12 +17,19 @@ import useModalConfirm from "./useModalConfirm";
 import { initOfferConnection, initAnswerConnection } from "@/lib/callUtils";
 import { waitForOffer } from "@/lib/webrtcOfferStore";
 import { getSocket } from "@/lib/socket";
+import { setMicActive } from "@/store/micActivitySlice";
+import { getLocalStream } from "@/lib/webrtc";
+import { startMicActivity } from "@/lib/micActivityManager";
 
 export default function useCallSocket() {
   const { alert } = useModalConfirm();
   const dispatch = useDispatch();
   const myEmail =
     useSelector((state: RootState) => state.auth.user?.email) || "";
+  const roomId = useSelector((state: RootState) => state.call.roomId);
+  const call = useSelector((state: RootState) => state.call);
+  const isCallOngoing =
+    call.callerEnded === false && call.calleeEnded === false;
   const socket = getSocket();
 
   const playSound = async (src: string) => {
@@ -62,6 +69,7 @@ export default function useCallSocket() {
               }
             },
           });
+        socket.emit("voice:sync", { roomId, to: target });
       } else {
         if (isWebRTC) {
           await clearLocalStream();
@@ -145,7 +153,13 @@ export default function useCallSocket() {
       stopRingback();
       clearLocalStream();
     });
-
+    socket.on("voice:active", ({ email }) => {
+      console.log("active");
+      dispatch(setMicActive({ email, active: true }));
+    });
+    socket.on("voice:inactive", ({ email }) => {
+      dispatch(setMicActive({ email, active: false }));
+    });
     return () => {
       socket.off("call:resume-success", resumeHandler);
       socket.off("call:incoming");
@@ -156,6 +170,27 @@ export default function useCallSocket() {
       socket.off("call:clear");
       socket.off("call:re-clear");
       socket.off("call:busy");
+      socket.off("voice:active");
+      socket.off("voice:inactive");
     };
   }, [myEmail]);
+  useEffect(() => {
+    if (!myEmail || !roomId || !isCallOngoing) return;
+
+    let cleanup: (() => void) | null = null;
+
+    getLocalStream()
+      .then((stream) => {
+        cleanup = startMicActivity({
+          email: myEmail,
+          roomId,
+          stream,
+        });
+      })
+      .catch(console.error);
+    console.log("??mic");
+    return () => {
+      if (cleanup) cleanup();
+    };
+  }, [myEmail, roomId, isCallOngoing]);
 }

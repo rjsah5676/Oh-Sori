@@ -1,4 +1,3 @@
-// src/store/store.ts
 import { configureStore } from "@reduxjs/toolkit";
 import authReducer from "./authSlice";
 import userStatusReducer from "./userStatusSlice";
@@ -6,6 +5,7 @@ import callReducer from "./callSlice";
 import uiReducer, { initialState as uiInitialState } from "./uiSlice";
 import modalReducer from "./modalSlice";
 import { loadUIState, saveUIState } from "./reload/localStorage";
+import micActivityReducer from "./micActivitySlice";
 
 const loadedUI = loadUIState();
 const preloadedState = {
@@ -19,6 +19,7 @@ export const store = configureStore({
     call: callReducer,
     ui: uiReducer,
     modal: modalReducer,
+    micActivity: micActivityReducer,
   },
   preloadedState,
 });

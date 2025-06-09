@@ -13,8 +13,7 @@ import { endCall, clearIncomingCall, finalizeCall } from "@/store/callSlice";
 import { startVoiceCall, endVoiceCall } from "@/lib/callUtils";
 import { showModal } from "@/store/modalSlice";
 import { initOfferConnection } from "@/lib/callUtils";
-import { getLocalStream } from "@/lib/webrtc";
-import { useMicActivity } from "@/hooks/useMicActivity";
+
 interface Message {
   _id: string;
   roomId: string;
@@ -64,30 +63,15 @@ export default function DMRoomPage() {
       : "offline"
   );
 
+  const isMyMicActive = useSelector(
+    (state: RootState) => state.micActivity[myEmail] ?? false
+  );
+  const isTargetMicActive = useSelector(
+    (state: RootState) =>
+      state.micActivity[selectedFriend?.email || ""] ?? false
+  );
+
   const call = useSelector((state: RootState) => state.call); //통화 상태
-
-  //마이크 깜빡 로직
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [isTargetMicActive, setIsTargetMicActive] = useState(false);
-  const isCallOngoing =
-    selectedFriend?.roomId === call.roomId &&
-    call.callerEnded === false &&
-    call.calleeEnded === false;
-
-  const isMyMicActive = useMicActivity(localStream, {
-    email: myEmail,
-    roomId: selectedFriend?.roomId || "",
-    enabled: isCallOngoing,
-  });
-  useEffect(() => {
-    if (!selectedFriend?.roomId || !myEmail) return;
-
-    const event = isMyMicActive ? "voice:active" : "voice:inactive";
-    socket.emit(event, {
-      roomId: selectedFriend.roomId,
-      email: myEmail,
-    });
-  }, [isMyMicActive, selectedFriend?.roomId, myEmail]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -95,16 +79,7 @@ export default function DMRoomPage() {
     window.addEventListener("resize", checkMobile);
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
-  useEffect(() => {
-    const isOngoing =
-      selectedFriend?.roomId === call.roomId &&
-      call.callerEnded === false &&
-      call.calleeEnded === false;
 
-    if (!isOngoing) return;
-
-    getLocalStream().then(setLocalStream).catch(console.error);
-  }, [call.roomId, call.callerEnded, call.calleeEnded]);
   useEffect(() => {
     const socket = getSocket();
     const handleReceiveMessage = (msg: Message) => {
@@ -134,19 +109,9 @@ export default function DMRoomPage() {
       }, 0);
     };
 
-    const handleActive = ({ email }: { email: string }) => {
-      if (email === selectedFriend?.email) setIsTargetMicActive(true);
-    };
-    const handleInactive = ({ email }: { email: string }) => {
-      if (email === selectedFriend?.email) setIsTargetMicActive(false);
-    };
-    socket.on("voice:active", handleActive);
-    socket.on("voice:inactive", handleInactive);
     socket.on("receiveMessage", handleReceiveMessage);
     return () => {
       socket.off("receiveMessage", handleReceiveMessage);
-      socket.off("voice:active", handleActive);
-      socket.off("voice:inactive", handleInactive);
     };
   }, [selectedFriend, myEmail]);
 

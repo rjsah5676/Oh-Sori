@@ -1,24 +1,31 @@
-import { useEffect, useRef, useState } from "react";
-import { getSocket } from "@/lib/socket"; // 소켓 인스턴스 가져오는 함수
+import { useEffect, useRef } from "react";
+import { useDispatch } from "react-redux";
+import { setMicActive } from "@/store/micActivitySlice";
+import { getSocket } from "@/lib/socket";
 
-interface MicActivityOptions {
+export function useMicActivity({
+  email,
+  roomId,
+  stream,
+  enabled,
+}: {
   email: string;
   roomId: string;
-  enabled: boolean; // 감지 켜짐 여부
-}
-
-export function useMicActivity(
-  stream: MediaStream | null,
-  { email, roomId, enabled }: MicActivityOptions
-): boolean {
-  const [active, setActive] = useState(false);
+  stream: MediaStream | null;
+  enabled: boolean;
+}) {
+  const dispatch = useDispatch();
   const socket = getSocket();
-  const lastStateRef = useRef(false); // 마지막 상태 기억
+  const lastStateRef = useRef(false);
+  const rafIdRef = useRef<number | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     if (!stream || !enabled) return;
 
     const audioContext = new AudioContext();
+    audioContextRef.current = audioContext;
+
     const source = audioContext.createMediaStreamSource(stream);
     const analyser = audioContext.createAnalyser();
     analyser.fftSize = 512;
@@ -26,35 +33,33 @@ export function useMicActivity(
 
     source.connect(analyser);
 
-    let rafId: number;
+    const VOLUME_THRESHOLD = 20;
+
     const tick = () => {
       analyser.getByteFrequencyData(dataArray);
       const volume = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+      const isActive = volume > VOLUME_THRESHOLD;
 
-      const isActive = volume > 20;
-      setActive(isActive);
-
-      // 🔥 상태 변경 감지 시 emit
       if (isActive !== lastStateRef.current) {
         lastStateRef.current = isActive;
+        dispatch(setMicActive({ email, active: isActive }));
         socket.emit(isActive ? "voice:active" : "voice:inactive", {
           email,
           roomId,
         });
       }
 
-      rafId = requestAnimationFrame(tick);
+      rafIdRef.current = requestAnimationFrame(tick);
     };
 
     tick();
 
     return () => {
-      cancelAnimationFrame(rafId);
+      if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       audioContext.close();
-      setActive(false);
+      audioContextRef.current = null;
+      dispatch(setMicActive({ email, active: false }));
       lastStateRef.current = false;
     };
   }, [stream, enabled, email, roomId]);
-
-  return active;
 }

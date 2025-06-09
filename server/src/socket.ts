@@ -430,6 +430,17 @@ export const initSocket = (server: any) => {
       }
     });
 
+    socket.on("voice:sync", ({ roomId, to }) => {
+      const targetSocketId = userSocketMap.get(to);
+      if (!targetSocketId) return;
+      const from = socketToEmail.get(socket.id);
+      if (!from) return;
+
+      io.to(targetSocketId).emit("voice:sync", {
+        roomId,
+        to: from,
+      });
+    });
     socket.on("voice:active", ({ roomId, email }) => {
       socket.to(roomId).emit("voice:active", { email });
     });

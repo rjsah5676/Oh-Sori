@@ -1,20 +1,38 @@
 import { clearStoredOffer } from "./webrtcOfferStore";
+import { store } from "@/store/store";
+import { incrementStreamVersion } from "@/store/micActivitySlice";
 
 let localStream: MediaStream | null = null;
 let peer: RTCPeerConnection | null = null;
 
 export const getLocalStream = async (): Promise<MediaStream> => {
-  if (localStream) return localStream;
+  const needsNewStream =
+    !localStream ||
+    localStream.getAudioTracks().length === 0 ||
+    localStream.getAudioTracks().some((track) => track.readyState !== "live");
+
+  if (!needsNewStream) return localStream!;
 
   try {
     localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    store.dispatch(incrementStreamVersion());
     return localStream;
   } catch (err) {
     console.error("❌ 마이크 접근 실패:", err);
     throw err;
   }
 };
+export const isLocalStreamValid = (): boolean => {
+  return (
+    localStream !== null &&
+    localStream.getAudioTracks().length > 0 &&
+    localStream.getAudioTracks().every((track) => track.readyState === "live")
+  );
+};
 
+export const getLocalStreamUnsafe = (): MediaStream | null => {
+  return localStream;
+};
 export const clearLocalStream = async () => {
   console.log("로컬 스트림 삭제");
   clearStoredOffer();

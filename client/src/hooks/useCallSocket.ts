@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import {
@@ -18,7 +18,7 @@ import { initOfferConnection, initAnswerConnection } from "@/lib/callUtils";
 import { waitForOffer } from "@/lib/webrtcOfferStore";
 import { getSocket } from "@/lib/socket";
 import { setMicActive } from "@/store/micActivitySlice";
-import { getLocalStream } from "@/lib/webrtc";
+import { isLocalStreamValid, getLocalStreamUnsafe } from "@/lib/webrtc";
 import { startMicActivity } from "@/lib/micActivityManager";
 
 export default function useCallSocket() {
@@ -32,6 +32,10 @@ export default function useCallSocket() {
     call.callerEnded === false && call.calleeEnded === false;
   const socket = getSocket();
 
+  const localStreamRef = useRef<MediaStream | null>(null);
+  const streamVersion = useSelector(
+    (state: RootState) => state.micActivity.streamVersion
+  );
   const playSound = async (src: string) => {
     try {
       const audio = new Audio(src);
@@ -174,33 +178,37 @@ export default function useCallSocket() {
       socket.off("voice:inactive");
     };
   }, [myEmail]);
+
   useEffect(() => {
+    console.log("🧪 mic 감지 체크");
+
     if (!myEmail || !roomId || !isCallOngoing) return;
 
-    let cleanup: (() => void) | null = null;
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
+    let cleanup: (() => void) | null = null;
 
     timeoutId = setTimeout(() => {
-      getLocalStream()
-        .then((stream) => {
-          if (!stream.active || stream.getAudioTracks().length === 0) {
-            console.warn("🚫 감지 불가: stream inactive or no track");
-            return;
-          }
+      const valid = isLocalStreamValid();
+      if (!valid) {
+        console.warn("❌ 기존 localStream 유효하지 않음, 감지 스킵");
+        return;
+      }
 
-          console.log("🎙️ 마이크 감지 시작됨:", stream);
-          cleanup = startMicActivity({
-            email: myEmail,
-            roomId,
-            stream,
-          });
-        })
-        .catch(console.error);
-    }, 1000); // ⏱ 1초 딜레이 후 실행
+      const stream = getLocalStreamUnsafe();
+      if (!stream) return;
+
+      console.log("🎙️ 기존 localStream으로 감지 시작 (1초 딜레이)");
+
+      cleanup = startMicActivity({
+        email: myEmail,
+        roomId,
+        stream,
+      });
+    }, 1000); // ⏱ 1초 딜레이
 
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
       if (cleanup) cleanup();
     };
-  }, [myEmail, roomId, isCallOngoing]);
+  }, [streamVersion]);
 }

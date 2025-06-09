@@ -1,10 +1,16 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface MicActivityState {
-  [email: string]: boolean;
+  activities: {
+    [email: string]: boolean;
+  };
+  streamVersion: number;
 }
 
-const initialState: MicActivityState = {};
+const initialState: MicActivityState = {
+  activities: {},
+  streamVersion: 0,
+};
 
 const micActivitySlice = createSlice({
   name: "micActivity",
@@ -14,13 +20,25 @@ const micActivitySlice = createSlice({
       state,
       action: PayloadAction<{ email: string; active: boolean }>
     ) {
-      state[action.payload.email] = action.payload.active;
+      state.activities[action.payload.email] = action.payload.active;
     },
     clearMicActivity(state) {
-      return {};
+      state.activities = {};
+    },
+    incrementStreamVersion(state) {
+      state.streamVersion += 1;
+    },
+    resetStreamVersion(state) {
+      state.streamVersion = 0;
     },
   },
 });
 
-export const { setMicActive, clearMicActivity } = micActivitySlice.actions;
+export const {
+  setMicActive,
+  clearMicActivity,
+  incrementStreamVersion,
+  resetStreamVersion,
+} = micActivitySlice.actions;
+
 export default micActivitySlice.reducer;

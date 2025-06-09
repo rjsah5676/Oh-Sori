@@ -430,24 +430,30 @@ export const initSocket = (server: any) => {
       }
     });
 
-    socket.on("voice:sync", ({ roomId, to }) => {
-      const targetSocketId = userSocketMap.get(to);
-      if (!targetSocketId) return;
-      const from = socketToEmail.get(socket.id);
-      if (!from) return;
+    socket.on("voice:active", ({ roomId, email }) => {
+      const session = getCallSession(roomId); // Redis에서 세션 불러옴
+      session.then((s) => {
+        if (!s) return;
+        const target = s.caller === email ? s.callee : s.caller;
+        const targetSocketId = userSocketMap.get(target);
+        if (!targetSocketId) return;
 
-      io.to(targetSocketId).emit("voice:sync", {
-        roomId,
-        to: from,
+        io.to(targetSocketId).emit("voice:active", { email });
+        console.log(`🎙️ 마이크 활성: ${email} → ${target}`);
       });
     });
-    socket.on("voice:active", ({ roomId, email }) => {
-      socket.to(roomId).emit("voice:active", { email });
-    });
 
-    // 마이크 감지 - 비활성화
     socket.on("voice:inactive", ({ roomId, email }) => {
-      socket.to(roomId).emit("voice:inactive", { email });
+      const session = getCallSession(roomId);
+      session.then((s) => {
+        if (!s) return;
+        const target = s.caller === email ? s.callee : s.caller;
+        const targetSocketId = userSocketMap.get(target);
+        if (!targetSocketId) return;
+
+        io.to(targetSocketId).emit("voice:inactive", { email });
+        console.log(`🔇 마이크 비활성: ${email} → ${target}`);
+      });
     });
 
     socket.on("logout", async (email: string) => {

@@ -62,13 +62,13 @@ export default function DMRoomPage() {
       ? state.userStatus.statuses[selectedFriend.email]
       : "offline"
   );
-
   const isMyMicActive = useSelector(
-    (state: RootState) => state.micActivity[myEmail] ?? false
+    (state: RootState) => state.micActivity.activities[myEmail] ?? false
   );
+
   const isTargetMicActive = useSelector(
     (state: RootState) =>
-      state.micActivity[selectedFriend?.email || ""] ?? false
+      state.micActivity.activities[selectedFriend?.email || ""] ?? false
   );
 
   const call = useSelector((state: RootState) => state.call); //통화 상태

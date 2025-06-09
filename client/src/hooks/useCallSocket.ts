@@ -31,8 +31,9 @@ export default function useCallSocket() {
   const isCallOngoing =
     call.callerEnded === false && call.calleeEnded === false;
   const socket = getSocket();
-
-  const localStreamRef = useRef<MediaStream | null>(null);
+  const selectedFriend = useSelector(
+    (state: RootState) => state.ui.selectedFriend
+  );
   const streamVersion = useSelector(
     (state: RootState) => state.micActivity.streamVersion
   );
@@ -188,6 +189,12 @@ export default function useCallSocket() {
       return () => {
         if (timeoutId) clearTimeout(timeoutId);
         if (cleanup) cleanup();
+        dispatch(setMicActive({ email: myEmail, active: false }));
+        if (selectedFriend?.email) {
+          dispatch(
+            setMicActive({ email: selectedFriend.email, active: false })
+          );
+        }
       };
     }
 
@@ -208,6 +215,10 @@ export default function useCallSocket() {
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
       if (cleanup) cleanup();
+      dispatch(setMicActive({ email: myEmail, active: false }));
+      if (selectedFriend?.email) {
+        dispatch(setMicActive({ email: selectedFriend.email, active: false }));
+      }
     };
   }, [streamVersion, myEmail, roomId, isCallOngoing]);
 }

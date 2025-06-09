@@ -184,9 +184,11 @@ export default function useCallSocket() {
       getLocalStream()
         .then((stream) => {
           if (!stream.active || stream.getAudioTracks().length === 0) {
+            console.warn("🚫 감지 불가: stream inactive or no track");
             return;
           }
 
+          console.log("🎙️ 마이크 감지 시작됨:", stream);
           cleanup = startMicActivity({
             email: myEmail,
             roomId,

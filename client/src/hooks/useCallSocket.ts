@@ -180,16 +180,19 @@ export default function useCallSocket() {
   }, [myEmail]);
 
   useEffect(() => {
-    console.log("🧪 mic 감지 체크");
-
-    if (!myEmail || !roomId || !isCallOngoing) return;
-
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     let cleanup: (() => void) | null = null;
 
+    // ✅ 조건 안 맞아도 cleanup을 등록해놓고 실행되도록
+    if (!myEmail || !roomId || !isCallOngoing) {
+      return () => {
+        if (timeoutId) clearTimeout(timeoutId);
+        if (cleanup) cleanup();
+      };
+    }
+
     timeoutId = setTimeout(() => {
-      const valid = isLocalStreamValid();
-      if (!valid) {
+      if (!isLocalStreamValid()) {
         console.warn("❌ 기존 localStream 유효하지 않음, 감지 스킵");
         return;
       }
@@ -198,17 +201,13 @@ export default function useCallSocket() {
       if (!stream) return;
 
       console.log("🎙️ 기존 localStream으로 감지 시작 (1초 딜레이)");
+      cleanup = startMicActivity({ email: myEmail, roomId, stream });
+    }, 1000);
 
-      cleanup = startMicActivity({
-        email: myEmail,
-        roomId,
-        stream,
-      });
-    }, 1000); // ⏱ 1초 딜레이
-
+    // ✅ 항상 cleanup 등록
     return () => {
       if (timeoutId) clearTimeout(timeoutId);
       if (cleanup) cleanup();
     };
-  }, [streamVersion]);
+  }, [streamVersion, myEmail, roomId, isCallOngoing]);
 }

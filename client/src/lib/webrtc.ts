@@ -1,6 +1,7 @@
 import { clearStoredOffer } from "./webrtcOfferStore";
 import { store } from "@/store/store";
 import { incrementStreamVersion } from "@/store/micActivitySlice";
+import { setPeerSharing } from "@/store/screenShareSlice";
 
 let localStream: MediaStream | null = null;
 let peer: RTCPeerConnection | null = null;
@@ -110,10 +111,23 @@ export const createPeerConnection = ({
   const remoteStream = new MediaStream();
   newPeer.ontrack = (event) => {
     console.log("🎧 원격 스트림 수신됨:", event.streams);
-    event.streams[0].getTracks().forEach((track) => {
+
+    const stream = event.streams[0];
+
+    stream.getTracks().forEach((track) => {
       console.log("🔊 수신된 트랙:", track.kind);
+
+      if (track.kind === "video") {
+        console.log("📺 영상 트랙 수신됨");
+        store.dispatch(setPeerSharing(true));
+      } else if (track.kind === "audio") {
+        console.log("🎙️ 오디오 트랙 수신됨");
+        // 기존 오디오 연결 처리
+      }
+
       remoteStream.addTrack(track);
     });
+
     onRemoteStream(remoteStream);
   };
 

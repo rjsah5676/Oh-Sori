@@ -20,6 +20,7 @@ import { getSocket } from "@/lib/socket";
 import { setMicActive } from "@/store/micActivitySlice";
 import { isLocalStreamValid, getLocalStreamUnsafe } from "@/lib/webrtc";
 import { startMicActivity } from "@/lib/micActivityManager";
+import { setPeerSharing } from "@/store/screenShareSlice";
 
 export default function useCallSocket() {
   const { alert } = useModalConfirm();
@@ -58,6 +59,10 @@ export default function useCallSocket() {
       const isWebRTC = !data.calleeEnded && !data.callerEnded;
       if (isSelf) {
         console.log("🎧 내가 재참여함");
+        socket.emit("screen:stopped", {
+          to: selectedFriend?.email,
+          roomId: selectedFriend?.roomId,
+        });
         dispatch(startReCall(data));
         await playSound("/images/effect/join.ogg");
         if (isWebRTC)
@@ -165,6 +170,11 @@ export default function useCallSocket() {
     socket.on("voice:inactive", ({ email }) => {
       dispatch(setMicActive({ email, active: false }));
     });
+    socket.on("screen:stopped", ({ from, roomId }) => {
+      console.log("📴 상대방 화면 공유 종료됨");
+      dispatch(setPeerSharing(false));
+    });
+
     return () => {
       socket.off("call:resume-success", resumeHandler);
       socket.off("call:incoming");
@@ -177,6 +187,7 @@ export default function useCallSocket() {
       socket.off("call:busy");
       socket.off("voice:active");
       socket.off("voice:inactive");
+      socket.off("screen:stopped");
     };
   }, [myEmail]);
 

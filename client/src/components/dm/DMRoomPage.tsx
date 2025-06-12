@@ -7,12 +7,23 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState } from "@/store/store";
 import UserAvatar from "@/components/UserAvatar";
 import dayjs from "dayjs";
-import { Trash2, Phone, Monitor, PhoneOff } from "lucide-react";
-import { startCall } from "@/store/callSlice";
-import { endCall, clearIncomingCall, finalizeCall } from "@/store/callSlice";
+import { Trash2, Phone, Monitor, PhoneOff, MonitorOff } from "lucide-react";
+import { clearIncomingCall, finalizeCall } from "@/store/callSlice";
 import { startVoiceCall, endVoiceCall } from "@/lib/callUtils";
 import { showModal } from "@/store/modalSlice";
 import { initOfferConnection } from "@/lib/callUtils";
+import { getPeer } from "@/lib/webrtc";
+import {
+  startSharing,
+  stopSharing,
+  setViewMode,
+  setPeerSharing,
+} from "@/store/screenShareSlice";
+import {
+  getScreenStream,
+  startScreenShareStream,
+  stopScreenShareStream,
+} from "@/lib/screenShareStreamManager";
 
 interface Message {
   _id: string;
@@ -71,6 +82,110 @@ export default function DMRoomPage() {
       state.micActivity.activities[selectedFriend?.email || ""] ?? false
   );
 
+  const isSharing = useSelector(
+    (state: RootState) => state.screenShare.isSharing
+  );
+  const isPeerSharing = useSelector(
+    (state: RootState) => state.screenShare.isPeerSharing
+  );
+
+  const viewMode = useSelector(
+    (state: RootState) => state.screenShare.viewMode
+  );
+  const screenVideoRef = useRef<HTMLVideoElement | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const remoteScreenVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (!isPeerSharing) {
+      if (remoteScreenVideoRef.current) {
+        remoteScreenVideoRef.current.srcObject = null;
+      }
+    }
+    if (isPeerSharing && remoteScreenVideoRef.current) {
+      const stream = getPeer()
+        ?.getReceivers()
+        ?.find((r) => r.track.kind === "video")?.track;
+      if (stream) {
+        const mediaStream = new MediaStream([stream]);
+        remoteScreenVideoRef.current.srcObject = mediaStream;
+        remoteScreenVideoRef.current.play().catch(console.warn);
+      }
+    }
+  }, [isPeerSharing]);
+  const handleStartSharing = async () => {
+    console.log("🎥 화면 공유 시작 시도");
+    const socket = getSocket();
+    const peer = getPeer(); // 전역 peer
+
+    try {
+      // ✅ (1단계) 이전 화면 공유 트랙 제거
+      const oldSender = peer
+        ?.getSenders()
+        .find(
+          (s) => s.track?.kind === "video" && s.track.label.includes("Screen")
+        );
+      if (oldSender) {
+        peer?.removeTrack(oldSender);
+        console.log("🧹 이전 화면 공유 트랙 제거 완료");
+      }
+
+      // ✅ (2단계) 새 화면 공유 stream 가져오기
+      const stream = await startScreenShareStream();
+      screenStreamRef.current = stream;
+
+      dispatch(startSharing()); // 상태 업데이트
+
+      if (peer && stream) {
+        stream.getVideoTracks().forEach((track) => {
+          peer.addTrack(track, stream);
+          console.log("🎥 화면 공유 트랙 전송됨:", track);
+        });
+
+        peer.getSenders().forEach((sender) => {
+          console.log(
+            "📤 송신 예정 트랙:",
+            sender.track?.kind,
+            sender.track?.label
+          );
+        });
+      }
+
+      // ✅ (3단계) 화면 렌더링 및 offer 전송
+      setTimeout(async () => {
+        if (screenVideoRef.current) {
+          screenVideoRef.current.srcObject = stream;
+          screenVideoRef.current
+            .play()
+            .catch((e) => console.warn("영상 재생 실패:", e));
+          console.log("✅ 비디오에 stream 연결 완료");
+
+          if (!peer) return;
+
+          const offer = await peer.createOffer();
+          await peer.setLocalDescription(offer);
+          socket.emit("webrtc:renegotiate-offer", {
+            to: selectedFriend?.email,
+            offer,
+          });
+          console.log("📨 화면 공유용 offer 전송됨");
+        } else {
+          console.warn("❌ screenVideoRef 가 아직 null임");
+        }
+      }, 100);
+    } catch (err) {
+      console.log("❌ 화면 공유 취소:", err);
+    }
+  };
+
+  const handleStopSharing = () => {
+    stopScreenShareStream();
+    socket.emit("screen:stopped", {
+      to: selectedFriend?.email,
+      roomId: selectedFriend?.roomId,
+    });
+    dispatch(stopSharing());
+  };
   const call = useSelector((state: RootState) => state.call); //통화 상태
 
   useEffect(() => {
@@ -503,7 +618,8 @@ export default function DMRoomPage() {
 
   const handleEndCall = () => {
     if (!selectedFriend) return;
-
+    handleStopSharing();
+    dispatch(setPeerSharing(false));
     endVoiceCall({
       socket,
       dispatch,
@@ -556,6 +672,19 @@ export default function DMRoomPage() {
         (!call.callerEnded || !call.calleeEnded) && (
           <div className="relative bg-black text-white py-6 px-4 flex flex-col items-center justify-center shadow-md">
             <div className="flex items-center justify-center gap-10 mb-4">
+              {/* ✅ 화면 공유 중일 때만 왼쪽에 박스 추가 */}
+              {isSharing && (
+                <div className="w-40 h-28 rounded overflow-hidden bg-zinc-900">
+                  <video
+                    ref={screenVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+
               {/* 본인 아바타 */}
               <div className="flex flex-col items-center gap-1">
                 <div
@@ -596,8 +725,18 @@ export default function DMRoomPage() {
                 </div>
                 <div className="text-xs">{selectedFriend.nickname}</div>
               </div>
+              {isPeerSharing && (
+                <div className="w-40 h-28 rounded overflow-hidden bg-zinc-900">
+                  <video
+                    ref={remoteScreenVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
             </div>
-
             <div className="flex items-center gap-4 mt-4">
               {/* 본인이 아직 통화 참여 안한 상태면 참여 버튼 보여주기 */}
               {(call.isCaller && call.callerEnded) ||
@@ -610,17 +749,23 @@ export default function DMRoomPage() {
                 </button>
               ) : (
                 <>
-                  {/* 화면 공유 버튼 */}
-                  <button
-                    onClick={() =>
-                      dispatch(
-                        showModal({ type: "alert", message: "화면공유 미구현" })
-                      )
-                    }
-                    className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition"
-                  >
-                    <Monitor className="w-5 h-5 text-white" />
-                  </button>
+                  {isSharing ? (
+                    // ✅ 화면 공유 중일 때: 끄기 버튼
+                    <button
+                      onClick={handleStopSharing}
+                      className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition"
+                    >
+                      <MonitorOff className="w-5 h-5 text-white" />
+                    </button>
+                  ) : (
+                    // ✅ 평소: 화면 공유 시작 버튼
+                    <button
+                      onClick={handleStartSharing}
+                      className="w-12 h-12 flex items-center justify-center rounded-full bg-zinc-800 hover:bg-zinc-700 transition"
+                    >
+                      <Monitor className="w-5 h-5 text-white" />
+                    </button>
+                  )}
 
                   {/* 통화 종료 버튼 */}
                   <button

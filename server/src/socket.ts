@@ -430,6 +430,45 @@ export const initSocket = (server: any) => {
       }
     });
 
+    socket.on("webrtc:renegotiate-offer", ({ to, offer }) => {
+      const targetSocketId = userSocketMap.get(to);
+      const from = socketToEmail.get(socket.id); // 보낸 사람 식별
+      if (targetSocketId && from) {
+        io.to(targetSocketId).emit("webrtc:renegotiate-offer", {
+          from,
+          offer,
+        });
+        console.log(`🔁 재협상 offer 전송됨: ${from} → ${to}`);
+      }
+    });
+
+    // ✅ 재협상 answer 수신 → 원래 보낸 사람에게 전달
+    socket.on("webrtc:renegotiate-answer", ({ to, answer }) => {
+      const targetSocketId = userSocketMap.get(to);
+      const from = socketToEmail.get(socket.id);
+
+      if (targetSocketId && from) {
+        io.to(targetSocketId).emit("webrtc:renegotiate-answer", {
+          from,
+          answer,
+        });
+        console.log(`✅ 재협상 answer 전송됨: ${from} → ${to}`);
+      }
+    });
+    // 화면 공유 종료 알림 수신 → 상대에게 전송
+    socket.on("screen:stopped", ({ to, roomId }) => {
+      const from = socketToEmail.get(socket.id); // 보내는 사람 이메일
+      const targetSocketId = userSocketMap.get(to);
+
+      if (from && targetSocketId) {
+        io.to(targetSocketId).emit("screen:stopped", {
+          from,
+          roomId,
+        });
+        console.log(`🛑 화면 공유 종료 알림 전송됨: ${from} → ${to}`);
+      }
+    });
+
     socket.on("voice:active", ({ roomId, email }) => {
       const session = getCallSession(roomId); // Redis에서 세션 불러옴
       session.then((s) => {
@@ -455,7 +494,17 @@ export const initSocket = (server: any) => {
         console.log(`🔇 마이크 비활성: ${email} → ${target}`);
       });
     });
+    socket.on("share:started", async ({ roomId, from }) => {
+      const session = await getCallSession(roomId);
+      if (!session) return;
 
+      const target = session.caller === from ? session.callee : session.caller;
+      const targetSocketId = userSocketMap.get(target);
+      if (!targetSocketId) return;
+
+      io.to(targetSocketId).emit("share:started", { roomId, from });
+      console.log(`📺 화면 공유 시작 알림: ${from} → ${target}`);
+    });
     socket.on("logout", async (email: string) => {
       const existingSocketId = userSocketMap.get(email);
 

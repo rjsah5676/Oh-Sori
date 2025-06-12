@@ -63,11 +63,27 @@ export default function useWebRTCConnection() {
         }
       }
     });
+    socket.on("webrtc:renegotiate-offer", async ({ from, offer }) => {
+      const peer = getPeer();
+      if (!peer) return;
+      await peer.setRemoteDescription(offer);
+      const answer = await peer.createAnswer();
+      await peer.setLocalDescription(answer);
 
+      socket.emit("webrtc:renegotiate-answer", { to: from, answer });
+    });
+    socket.on("webrtc:renegotiate-answer", async ({ answer }) => {
+      const peer = getPeer();
+      if (!peer) return;
+      await peer.setRemoteDescription(answer);
+      console.log("📺 화면 공유 트랙 재협상 완료");
+    });
     return () => {
       socket.off("webrtc:offer");
       socket.off("webrtc:answer");
       socket.off("webrtc:ice-candidate");
+      socket.off("webrtc:renegotiate-answer");
+      socket.off("webrtc:renegotiate-offer");
     };
   }, []);
 }

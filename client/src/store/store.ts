@@ -6,7 +6,7 @@ import uiReducer, { initialState as uiInitialState } from "./uiSlice";
 import modalReducer from "./modalSlice";
 import { loadUIState, saveUIState } from "./reload/localStorage";
 import micActivityReducer from "./micActivitySlice";
-
+import screenShareReducer from "./screenShareSlice";
 const loadedUI = loadUIState();
 const preloadedState = {
   ui: loadedUI ?? uiInitialState,
@@ -20,6 +20,7 @@ export const store = configureStore({
     ui: uiReducer,
     modal: modalReducer,
     micActivity: micActivityReducer,
+    screenShare: screenShareReducer,
   },
   preloadedState,
 });

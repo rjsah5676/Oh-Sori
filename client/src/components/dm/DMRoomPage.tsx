@@ -116,70 +116,66 @@ export default function DMRoomPage() {
   const handleStartSharing = async () => {
     console.log("🎥 화면 공유 시작 시도");
     const socket = getSocket();
-    const peer = getPeer(); // 전역 peer
+    const pc = getPeer();
+    if (!pc) return;
 
     try {
-      // ✅ (1단계) 이전 화면 공유 트랙 제거
-      const oldSender = peer
-        ?.getSenders()
+      // 1️⃣ 새 화면 공유 스트림 확보
+      const stream = await startScreenShareStream();
+      const newTrack = stream.getVideoTracks()[0];
+      if (!newTrack) throw new Error("화면 공유 트랙 없음");
+
+      // 2️⃣ 기존 화면공유 sender 확인
+      const sender = pc
+        .getSenders()
         .find(
           (s) => s.track?.kind === "video" && s.track.label.includes("Screen")
         );
-      if (oldSender) {
-        peer?.removeTrack(oldSender);
-        console.log("🧹 이전 화면 공유 트랙 제거 완료");
+
+      if (sender) {
+        // 🔄 sender 유지, 트랙 교체
+        if (sender.track?.readyState === "live") sender.track.stop();
+        await sender.replaceTrack(newTrack);
+        console.log("🔄 sender.replaceTrack 완료");
+      } else {
+        // 최초 공유라면 새 트랜시버 추가 + 재협상
+        pc.addTrack(newTrack, stream);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socket.emit("webrtc:renegotiate-offer", {
+          to: selectedFriend?.email,
+          offer,
+        });
+        console.log("📨 화면 공유 offer 전송");
       }
 
-      // ✅ (2단계) 새 화면 공유 stream 가져오기
-      const stream = await startScreenShareStream();
-      screenStreamRef.current = stream;
-
-      dispatch(startSharing()); // 상태 업데이트
-
-      if (peer && stream) {
-        stream.getVideoTracks().forEach((track) => {
-          peer.addTrack(track, stream);
-          console.log("🎥 화면 공유 트랙 전송됨:", track);
-        });
-
-        peer.getSenders().forEach((sender) => {
-          console.log(
-            "📤 송신 예정 트랙:",
-            sender.track?.kind,
-            sender.track?.label
-          );
-        });
+      // 3️⃣ Redux 플래그 & 로컬 프리뷰
+      dispatch(startSharing());
+      if (screenVideoRef.current) {
+        screenVideoRef.current.pause();
+        screenVideoRef.current.srcObject = new MediaStream([newTrack]);
+        screenVideoRef.current.play().catch(() => {});
       }
-
-      // ✅ (3단계) 화면 렌더링 및 offer 전송
-      setTimeout(async () => {
-        if (screenVideoRef.current) {
-          screenVideoRef.current.srcObject = stream;
-          screenVideoRef.current
-            .play()
-            .catch((e) => console.warn("영상 재생 실패:", e));
-          console.log("✅ 비디오에 stream 연결 완료");
-
-          if (!peer) return;
-
-          const offer = await peer.createOffer();
-          await peer.setLocalDescription(offer);
-          socket.emit("webrtc:renegotiate-offer", {
-            to: selectedFriend?.email,
-            offer,
-          });
-          console.log("📨 화면 공유용 offer 전송됨");
-        } else {
-          console.warn("❌ screenVideoRef 가 아직 null임");
-        }
-      }, 100);
     } catch (err) {
-      console.log("❌ 화면 공유 취소:", err);
+      console.error("❌ 화면 공유 실패:", err);
     }
   };
-
+  useEffect(() => {
+    if (!isSharing) {
+      if (screenVideoRef.current) screenVideoRef.current.srcObject = null;
+      return;
+    }
+    // 싱글턴에서 스트림 가져와 재바인딩
+    const stream = getScreenStream();
+    if (stream && screenVideoRef.current) {
+      screenVideoRef.current.srcObject = stream;
+      screenVideoRef.current.play().catch(console.warn);
+    }
+  }, [isSharing]);
   const handleStopSharing = () => {
-    stopScreenShareStream();
+    const pc = getPeer();
+    if (!pc) return;
+    stopScreenShareStream(pc);
     socket.emit("screen:stopped", {
       to: selectedFriend?.email,
       roomId: selectedFriend?.roomId,

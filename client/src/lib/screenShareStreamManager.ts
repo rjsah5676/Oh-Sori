@@ -43,19 +43,43 @@ export const startScreenShareStream = async (
 };
 
 /**
- * 화면 공유 중단
+ * 화면 공유 스트림을 깔끔하게 정리한다.
+ *
+ * ─ `peer` :  현재 통화 중인 RTCPeerConnection (없어도 동작)
+ * ─ `silent`: 이미 종료된 트랙에 대해 warning 로그를 숨길지 여부
  */
-export const stopScreenShareStream = () => {
+export const stopScreenShareStream = (
+  peer?: RTCPeerConnection,
+  { silent = false } = {}
+) => {
   if (!screenStream) return;
 
-  console.log("🧹 화면 공유 스트림 정리");
+  const log = (...args: any[]) => !silent && console.log(...args);
+  log("🧹 화면 공유 스트림 정리");
 
-  screenStream.getTracks().forEach((track) => {
-    if (track.readyState === "live") {
-      track.stop();
+  // 1) 먼저 peer-connection에서 화면공유 트랙을 비운다
+  if (peer) {
+    const sender = peer
+      .getSenders()
+      .find(
+        (s) => s.track?.kind === "video" && s.track.label.includes("Screen")
+      );
+    if (sender) {
+      sender
+        .replaceTrack(null) // 같은 mid 유지 → 리모트가 바로 ‘ended’ 감지
+        .catch((e) => log("replaceTrack 실패:", e));
+      log("❎ sender.track 비움 완료");
     }
-  });
+  }
 
+  // 2) 로컬 스트림 트랙을 정리
+  for (const track of screenStream.getTracks()) {
+    if (track.readyState === "live") {
+      track.stop(); // 시스템 권한 창 닫힘
+    }
+  }
+
+  // 3) 전역 참조 제거
   screenStream = null;
 };
 

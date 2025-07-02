@@ -105,7 +105,23 @@ export default function MainRedirectPage() {
         }));
         setDmList(formatted);
       } else {
-        console.error("DM 리스트 로드 실패:", data.message);
+        alert("세션이 만료되었습니다. 다시 로그인해주세요.");
+        try {
+          const socket = getSocket();
+          if (email) {
+            socket.emit("logout", email);
+          }
+
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
+            method: "POST",
+            credentials: "include",
+          });
+
+          dispatch(logout());
+          router.push("/");
+        } catch (e) {
+          console.error("Logout failed:", e);
+        }
       }
     } catch (err) {
       console.error("DM 리스트 가져오기 에러:", err);

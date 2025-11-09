@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function FeedPage() {
   const [posts, setPosts] = useState<any[]>([]);
@@ -12,23 +12,22 @@ export default function FeedPage() {
     setPosts([
       {
         id: 1,
-        title: '타입스크립트 어려워..',
-        author: '익명1',
-        image: '/images/sample1.png',
+        title: "타입스크립트 어려워..",
+        author: "익명1",
+        image: "/images/sample1.png",
       },
       {
         id: 2,
-        title: '귀여운 오소리',
-        author: '익명2',
-        image: '/images/logo.png',
+        title: "귀여운 오소리",
+        author: "익명2",
+        image: "/images/logo.png",
       },
       {
         id: 3,
-        title: '망한 게임',
-        author: '로악귀',
-        image: '/images/LOSTARK.ico',
+        title: "아직 미개발 페이지입니다..",
+        author: "이건모",
+        image: "/images/LOSTARK.ico",
       },
-
     ]);
   }, []);
 
@@ -49,7 +48,9 @@ export default function FeedPage() {
               height={200}
               className="rounded-xl w-full h-[200px] object-cover mb-3"
             />
-            <h2 className="text-lg font-semibold mb-1 truncate">{post.title}</h2>
+            <h2 className="text-lg font-semibold mb-1 truncate">
+              {post.title}
+            </h2>
             <p className="text-sm text-zinc-500">by {post.author}</p>
           </div>
         ))}

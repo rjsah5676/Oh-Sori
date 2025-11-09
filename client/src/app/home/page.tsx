@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState } from "@/store/store";
 import Image from "next/image";
-import { Mic, Headphones, Settings, Users, Store } from "lucide-react";
+import { Mic, Headphones, LogOut, Users, Store } from "lucide-react";
 import { logout } from "@/store/authSlice";
 import RightPanel from "@/components/RightPanel";
 import { getSocket } from "@/lib/socket";
@@ -459,7 +459,7 @@ export default function MainRedirectPage() {
             }}
             className="hover:text-black dark:hover:text-white transition"
           >
-            <Settings size={16} />
+            <LogOut size={16} />
           </button>
         </div>
       </div>
@@ -610,7 +610,7 @@ export default function MainRedirectPage() {
               }}
               className="hover:text-black dark:hover:text-white transition"
             >
-              <Settings size={16} />
+              <LogOut size={16} />
             </button>
           </div>
         </div>
